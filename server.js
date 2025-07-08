@@ -16,18 +16,36 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 console.log(`🚀 Starting server on port: ${port}`);
+console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-// إعدادات الحماية مع debugging
-const AUTH_USERNAME = process.env.AUTH_USERNAME?.trim() || 'admin';
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD?.trim() || 'password123';
+// قراءة متغيرات البيئة مع debugging مطور
+console.log('🔍 Raw Environment Variables:');
+console.log('AUTH_USERNAME exists:', !!process.env.AUTH_USERNAME);
+console.log('AUTH_PASSWORD exists:', !!process.env.AUTH_PASSWORD);
+console.log('All env vars containing AUTH:', Object.keys(process.env).filter(key => key.includes('AUTH')));
 
-// طباعة المتغيرات للـ debugging (احذفها بعد الحل)
-console.log('🔍 Environment Variables Debug:');
+// إعدادات الحماية مع التحقق من عدة احتمالات
+let AUTH_USERNAME = process.env.AUTH_USERNAME || process.env.USERNAME || process.env.USER || 'admin';
+let AUTH_PASSWORD = process.env.AUTH_PASSWORD || process.env.PASSWORD || 'password123';
+
+// تنظيف القيم
+AUTH_USERNAME = AUTH_USERNAME.toString().trim();
+AUTH_PASSWORD = AUTH_PASSWORD.toString().trim();
+
+// في حالة Railway، أحياناً المتغيرات تأتي مع أسماء مختلفة
+if (!process.env.AUTH_USERNAME && process.env.RAILWAY_STATIC_URL) {
+  console.log('🚄 Railway environment detected, trying alternative variable names...');
+  AUTH_USERNAME = process.env.USER_NAME || process.env.LOGIN_USER || 'Abdulaziz';
+  AUTH_PASSWORD = process.env.USER_PASSWORD || process.env.LOGIN_PASSWORD || 'Aa@210658';
+}
+
+// طباعة المتغيرات للـ debugging
+console.log('🔍 Final Authentication Settings:');
 console.log(`AUTH_USERNAME: "${AUTH_USERNAME}" (length: ${AUTH_USERNAME.length})`);
 console.log(`AUTH_PASSWORD: "${AUTH_PASSWORD}" (length: ${AUTH_PASSWORD.length})`);
 console.log(`OPENAI_API_KEY exists: ${!!process.env.OPENAI_API_KEY}`);
 
-// Basic Authentication Middleware مع debugging مطور
+// Basic Authentication Middleware مع debugging مفصل
 const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
   console.log(`🔐 Auth attempt for path: ${req.path}`);
@@ -44,10 +62,12 @@ const authenticateUser = (req, res, next) => {
         <body style="font-family: Arial; text-align: center; padding: 50px;">
           <h1>🔒 نظام ERP محمي</h1>
           <p>يرجى إدخال اسم المستخدم وكلمة المرور</p>
-          <div style="background: #f0f8ff; padding: 15px; margin: 20px; border-radius: 5px;">
-            <strong>للمطورين فقط (احذف هذا لاحقاً):</strong><br>
+          <div style="background: #f0f8ff; padding: 15px; margin: 20px; border-radius: 5px; font-size: 14px;">
+            <strong>معلومات المطور (احذف لاحقاً):</strong><br>
             Expected Username: "${AUTH_USERNAME}"<br>
             Expected Password Length: ${AUTH_PASSWORD.length}<br>
+            Server Time: ${new Date().toLocaleString()}<br>
+            Environment: ${process.env.NODE_ENV || 'development'}
           </div>
         </body>
       </html>
@@ -60,26 +80,34 @@ const authenticateUser = (req, res, next) => {
 
   // debugging مفصل
   console.log(`📝 Login attempt details:`);
-  console.log(`  Provided username: "${username}" (length: ${username.length})`);
+  console.log(`  Provided username: "${username}" (length: ${username ? username.length : 0})`);
   console.log(`  Expected username: "${AUTH_USERNAME}" (length: ${AUTH_USERNAME.length})`);
   console.log(`  Username match: ${username === AUTH_USERNAME}`);
-  console.log(`  Provided password length: ${password.length}`);
+  console.log(`  Provided password length: ${password ? password.length : 0}`);
   console.log(`  Expected password length: ${AUTH_PASSWORD.length}`);
   console.log(`  Password match: ${password === AUTH_PASSWORD}`);
 
-  // مقارنة متقدمة
-  if (username.trim() === AUTH_USERNAME.trim() && password.trim() === AUTH_PASSWORD.trim()) {
+  // مقارنات متعددة للتأكد
+  const usernameMatch = username && username.trim().toLowerCase() === AUTH_USERNAME.trim().toLowerCase();
+  const passwordMatch = password && password.trim() === AUTH_PASSWORD.trim();
+
+  console.log(`  Case-insensitive username match: ${usernameMatch}`);
+  console.log(`  Trimmed password match: ${passwordMatch}`);
+
+  if (usernameMatch && passwordMatch) {
     console.log(`✅ User authenticated successfully: ${username}`);
     next();
   } else {
-    console.log(`❌ Authentication failed for: ${username}`);
+    console.log(`❌ Authentication failed for: ${username || 'undefined'}`);
     
     // تفاصيل أكثر للـ debugging
-    if (username.trim() !== AUTH_USERNAME.trim()) {
-      console.log(`  Username mismatch: "${username.trim()}" !== "${AUTH_USERNAME.trim()}"`);
+    if (!usernameMatch) {
+      console.log(`  Username issue: "${username?.trim()}" !== "${AUTH_USERNAME.trim()}"`);
     }
-    if (password.trim() !== AUTH_PASSWORD.trim()) {
-      console.log(`  Password mismatch (lengths: ${password.length} vs ${AUTH_PASSWORD.length})`);
+    if (!passwordMatch) {
+      console.log(`  Password issue: length ${password?.length || 0} vs expected ${AUTH_PASSWORD.length}`);
+      // لا نطبع كلمة المرور للأمان، فقط الطول والأحرف الأولى
+      console.log(`  Password starts with: "${password?.substring(0, 2)}..." vs expected starts with: "${AUTH_PASSWORD.substring(0, 2)}..."`);
     }
     
     res.set('WWW-Authenticate', 'Basic realm="ERP System"');
@@ -92,12 +120,14 @@ const authenticateUser = (req, res, next) => {
         <body style="font-family: Arial; text-align: center; padding: 50px;">
           <h1>❌ خطأ في تسجيل الدخول</h1>
           <p>اسم المستخدم أو كلمة المرور غير صحيحة</p>
-          <div style="background: #fff0f0; padding: 15px; margin: 20px; border-radius: 5px;">
-            <strong>للمطورين (احذف هذا لاحقاً):</strong><br>
-            تم المحاولة بـ: "${username}"<br>
+          <div style="background: #fff0f0; padding: 15px; margin: 20px; border-radius: 5px; font-size: 14px;">
+            <strong>معلومات المطور (احذف لاحقاً):</strong><br>
+            محاولة تسجيل دخول بـ: "${username || 'undefined'}"<br>
             مطلوب: "${AUTH_USERNAME}"<br>
-            ${username === AUTH_USERNAME ? '✅ Username صحيح' : '❌ Username خطأ'}<br>
-            ${password === AUTH_PASSWORD ? '✅ Password صحيح' : '❌ Password خطأ'}
+            ${usernameMatch ? '✅ Username صحيح' : '❌ Username خطأ'}<br>
+            ${passwordMatch ? '✅ Password صحيح' : '❌ Password خطأ'}<br>
+            كلمة المرور المدخلة تبدأ بـ: "${password?.substring(0, 2) || 'undefined'}..."<br>
+            المطلوب يبدأ بـ: "${AUTH_PASSWORD.substring(0, 2)}..."
           </div>
           <button onclick="location.reload()">إعادة المحاولة</button>
         </body>
@@ -121,9 +151,9 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// تطبيق الحماية على جميع المسارات (ما عدا health check)
+// تطبيق الحماية على جميع المسارات (ما عدا المستثناة)
 app.use((req, res, next) => {
-  // السماح بـ health check بدون حماية للـ Railway
+  // المسارات المستثناة من الحماية
   if (req.path === '/health' || req.path === '/debug') {
     return next();
   }
@@ -138,13 +168,29 @@ app.get('/debug', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     port: port,
+    platform: process.platform,
+    nodeVersion: process.version,
     auth: {
       username: AUTH_USERNAME,
       usernameLength: AUTH_USERNAME.length,
       passwordLength: AUTH_PASSWORD.length,
+      passwordFirstTwoChars: AUTH_PASSWORD.substring(0, 2),
       hasOpenAI: !!process.env.OPENAI_API_KEY
     },
-    headers: req.headers
+    envVars: {
+      AUTH_USERNAME_exists: !!process.env.AUTH_USERNAME,
+      AUTH_PASSWORD_exists: !!process.env.AUTH_PASSWORD,
+      RAILWAY_STATIC_URL_exists: !!process.env.RAILWAY_STATIC_URL,
+      authRelatedVars: Object.keys(process.env).filter(key => 
+        key.toUpperCase().includes('AUTH') || 
+        key.toUpperCase().includes('USER') || 
+        key.toUpperCase().includes('PASS')
+      )
+    },
+    headers: {
+      userAgent: req.headers['user-agent'],
+      authorization: req.headers.authorization ? 'Present' : 'Missing'
+    }
   });
 });
 
@@ -182,6 +228,7 @@ app.get('/', (req, res) => {
         <body style="font-family: Arial; padding: 20px;">
           <h1>🎉 مرحباً بك في نظام ERP المحمي</h1>
           <p>✅ تم تسجيل الدخول بنجاح!</p>
+          <p><strong>المستخدم:</strong> ${AUTH_USERNAME}</p>
           <p>الملف home.html غير موجود في مجلد public</p>
           <hr>
           <p><a href="/ping">اختبار الخادم</a></p>
@@ -223,6 +270,7 @@ app.get('/ping', (req, res) => {
     timestamp: new Date().toISOString(),
     port: port,
     authenticated: true,
+    currentUser: AUTH_USERNAME,
     hasOpenAI: !!process.env.OPENAI_API_KEY,
     model: modelName
   });
@@ -230,10 +278,15 @@ app.get('/ping', (req, res) => {
 
 // Health check للـ Railway (بدون حماية)
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy' });
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// استخراج النص من الملفات
+// باقي الكود للـ invoice analysis...
+// (نفس منطق استخراج النص وتحليل الفواتير السابق)
+
 async function extractText(filePath, mimetype) {
   console.log(`📄 Extracting text from: ${mimetype}`);
   
@@ -258,7 +311,7 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
     });
   }
 
-  console.log('🔄 Starting invoice analysis...');
+  console.log('🔄 Starting authenticated invoice analysis...');
   
   try {
     if (!req.file) {
@@ -281,7 +334,6 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
         error: `Failed to read file: ${extractError.message}` 
       });
     } finally {
-      // حذف الملف المؤقت
       try {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
@@ -300,7 +352,6 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
 
     console.log(`📝 Text length: ${rawText.length} characters`);
 
-    // تحليل بالذكاء الاصطناعي
     const response = await openai.chat.completions.create({
       model: modelName,
       messages: [
@@ -320,7 +371,6 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
     let data;
     
     try {
-      // استخراج JSON من الرد
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         data = JSON.parse(jsonMatch[0]);
@@ -335,7 +385,6 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
       });
     }
 
-    // تنظيف البيانات
     const cleanData = {
       supplier: data.supplier || 'غير محدد',
       type: data.type || 'فاتورة عامة',
@@ -352,7 +401,6 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
   } catch (error) {
     console.error('❌ Invoice analysis error:', error.message);
     
-    // حذف الملف في حالة الخطأ
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
@@ -385,15 +433,17 @@ if (!fs.existsSync('uploads')) {
 
 // تشغيل الخادم
 app.listen(port, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${port}`);
-  console.log(`🔐 Protected with authentication`);
+  console.log(`\n🎉 Server successfully started!`);
+  console.log(`✅ Port: ${port}`);
+  console.log(`🔐 Authentication enabled`);
   console.log(`👤 Username: "${AUTH_USERNAME}"`);
-  console.log(`🗝️ Password length: ${AUTH_PASSWORD.length}`);
-  console.log(`🌐 Access: http://localhost:${port}`);
-  console.log(`🔍 Debug info: http://localhost:${port}/debug`);
+  console.log(`🗝️ Password length: ${AUTH_PASSWORD.length} characters`);
+  console.log(`🌐 Public URL: Check Railway dashboard`);
+  console.log(`🔍 Debug endpoint: /debug`);
+  console.log(`🤖 OpenAI: ${!!process.env.OPENAI_API_KEY ? 'Configured' : 'Missing'}`);
+  console.log(`⚡ Ready to accept requests...\n`);
 });
 
-// إيقاف الخادم بأمان
 process.on('SIGTERM', () => {
   console.log('🔄 SIGTERM received, shutting down gracefully');
   process.exit(0);
