@@ -325,3 +325,12 @@ process.on('SIGINT', () => {
   console.log('\n🔄 إيقاف الخادم...');
   process.exit(0);
 });
+
+
+// Default route
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "home.html"));
+}); to handle root requests
+app.get('/', (req, res) => {
+  res.send('Welcome to ERP System!');
+});
