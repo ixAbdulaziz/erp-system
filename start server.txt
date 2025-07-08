@@ -1,0 +1,16 @@
+cd "C:\Users\3zBinfahad\OneDrive\Desktop\ERP-System"
+npm install
+npm start
+
+
+
+
+
+
+
+git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/ixAbdulaziz/erp-system.git
+git push -u origin main

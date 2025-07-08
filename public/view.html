@@ -1,0 +1,3497 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>عرض الفواتير حسب المورد</title>
+  <!-- استخدام Tailwind CSS من CDN للتطوير فقط -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --primary: linear-gradient(135deg, #475569 0%, #334155 100%);
+      --accent: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      --success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      --info: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+      --warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      --edit: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      --glass: rgba(15, 23, 42, 0.8);
+      --glass-light: rgba(30, 41, 59, 0.6);
+      --border: rgba(148, 163, 184, 0.1);
+      --border-light: rgba(148, 163, 184, 0.2);
+      --text: #f8fafc;
+      --text-secondary: #e2e8f0;
+      --text-muted: #94a3b8;
+      --shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+      --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body { 
+      font-family: 'Tajawal', sans-serif; 
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.3); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); }
+    
+    @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
+    @keyframes slideInRight { 0% { opacity: 0; transform: translateX(30px); } 100% { opacity: 1; transform: translateX(0); } }
+    @keyframes gentleShimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    @keyframes gentleFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+    @keyframes gentlePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+    @keyframes modalSlideIn { 0% { opacity: 0; transform: scale(0.9) translateY(-20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+    
+    .fade-up { opacity: 0; transform: translateY(30px); animation: fadeInUp 0.8s ease forwards; }
+    .slide-right { opacity: 0; transform: translateX(30px); animation: slideInRight 0.6s ease forwards; }
+    
+    /* Enhanced Sidebar */
+    .sidebar {
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border-light);
+      box-shadow: var(--shadow);
+    }
+    
+    .nav-link {
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      margin: 4px 0;
+      backdrop-filter: blur(10px);
+    }
+    
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 0; height: 100%;
+      background: var(--accent);
+      transition: all 0.4s ease;
+      z-index: -1;
+      border-radius: 16px;
+    }
+    
+    .nav-link:hover::before, .nav-link.active::before { width: 100%; }
+    .nav-link:hover, .nav-link.active { 
+      transform: translateX(-8px); 
+      color: var(--text); 
+      box-shadow: 0 8px 25px rgba(100, 116, 139, 0.3);
+    }
+    
+    /* Enhanced Glass Cards */
+    .glass-card, .modern-table-container, .page-header {
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .glass-card::before, .modern-table-container::before, .page-header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      background-size: 200% 100%;
+      animation: gentleShimmer 4s ease-in-out infinite;
+    }
+    
+    /* تنسيق خاص للأرقام المالية لضمان المحاذاة الصحيحة */
+    .money-amount {
+      display: inline-block;
+      width: 100%;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+      font-weight: 600;
+    }
+    
+    /* ENHANCED MODERN TABLE - IMPROVED ALIGNMENT AND DESIGN */
+    .modern-table-container {
+      overflow-x: auto;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modern-table {
+      width: 100%;
+      min-width: 1200px; /* Ensure minimum width for better layout */
+      border-collapse: separate;
+      border-spacing: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      font-feature-settings: "tnum"; /* Tabular numbers for better alignment */
+    }
+    
+    /* ENHANCED HEADER STYLING */
+    .modern-table thead th {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      padding: 24px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #f1f5f9;
+      text-transform: uppercase;
+      position: relative;
+      border-right: 1px solid var(--border-light);
+      border-bottom: 2px solid var(--border-light);
+      white-space: nowrap;
+      vertical-align: middle;
+      text-align: center;
+      box-shadow: inset 0 -2px 0 rgba(100, 116, 139, 0.3);
+    }
+    
+    /* Enhanced Header Styling for RTL alignment */
+    .modern-table thead th:nth-child(5),
+    .modern-table thead th:nth-child(6),
+    .modern-table thead th:nth-child(7) {
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    /* IMPROVED COLUMN WIDTHS AND ALIGNMENT */
+    .modern-table th:nth-child(1), .modern-table td:nth-child(1) { 
+      width: 10%; 
+      text-align: right; 
+      direction: rtl;
+      font-weight: 600;
+    }
+    .modern-table th:nth-child(2), .modern-table td:nth-child(2) { 
+      width: 11%; 
+      text-align: right; 
+      direction: rtl;
+    }
+    .modern-table th:nth-child(3), .modern-table td:nth-child(3) { 
+      width: 12%; 
+      text-align: right; 
+      direction: rtl;
+    }
+    .modern-table th:nth-child(4), .modern-table td:nth-child(4) { 
+      width: 11%; 
+      text-align: right; 
+      direction: rtl;
+    }
+    .modern-table th:nth-child(5), .modern-table td:nth-child(5) { 
+      width: 13%; 
+      text-align: right; 
+      font-family: 'Tajawal', sans-serif;
+      direction: rtl;
+    }
+    .modern-table th:nth-child(6), .modern-table td:nth-child(6) { 
+      width: 11%; 
+      text-align: right; 
+      font-family: 'Tajawal', sans-serif;
+      direction: rtl;
+    }
+    .modern-table th:nth-child(7), .modern-table td:nth-child(7) { 
+      width: 13%; 
+      text-align: right; 
+      font-family: 'Tajawal', sans-serif;
+      direction: rtl;
+      font-weight: 600;
+    }
+    .modern-table th:nth-child(8), .modern-table td:nth-child(8) { 
+      width: 15%; 
+      text-align: right; 
+      direction: rtl;
+    }
+    .modern-table th:nth-child(9), .modern-table td:nth-child(9) { 
+      width: 8%; 
+      text-align: center; 
+    }
+    .modern-table th:nth-child(10), .modern-table td:nth-child(10) { 
+      width: 6%; 
+      text-align: center; 
+    }
+    
+    /* Sortable header styling */
+    .sortable-header {
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.3s ease;
+      position: relative;
+      padding-left: 30px;
+    }
+    
+    .sortable-header:hover {
+      background: linear-gradient(135deg, #334155 0%, #475569 100%);
+      transform: translateY(-1px);
+      color: #ffffff;
+    }
+    
+    .sort-icon {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+      transition: all 0.3s ease;
+    }
+    
+    .sortable-header:hover .sort-icon {
+      opacity: 1;
+    }
+    
+    .sortable-header.sort-asc .sort-icon {
+      opacity: 1;
+      color: #10b981;
+      transform: translateY(-50%) rotate(0deg);
+    }
+    
+    .sortable-header.sort-desc .sort-icon {
+      opacity: 1;
+      color: #ef4444;
+      transform: translateY(-50%) rotate(180deg);
+    }
+    
+    .modern-table thead th:first-child { border-top-right-radius: 16px; border-right: none; }
+    .modern-table thead th:last-child { border-top-left-radius: 16px; }
+    
+    /* ENHANCED ROW STYLING */
+    .modern-table tbody tr {
+      transition: all 0.4s ease;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    
+    .modern-table tbody tr:nth-child(even) { 
+      background: rgba(30, 41, 59, 0.3); 
+    }
+    
+    .modern-table tbody tr:hover {
+      background: linear-gradient(135deg, rgba(100, 116, 139, 0.15) 0%, rgba(75, 85, 99, 0.15) 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(100, 116, 139, 0.2);
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+    
+    /* ENHANCED CELL STYLING */
+    .modern-table tbody td {
+      padding: 20px 16px;
+      color: #f8fafc;
+      font-size: 14px;
+      border-right: 1px solid var(--border);
+      position: relative;
+      vertical-align: middle;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      transition: all 0.3s ease;
+      min-height: 70px;
+      line-height: 1.5;
+    }
+    
+    /* SPECIFIC CELL CONTENT STYLING */
+    .modern-table tbody td:nth-child(1) {
+      font-weight: 700;
+      color: #ffffff;
+      font-size: 15px;
+      text-align: right;
+      direction: rtl;
+    }
+    
+    .modern-table tbody td:nth-child(2) {
+      color: #f1f5f9;
+      font-weight: 500;
+      text-align: right;
+      direction: rtl;
+    }
+    
+    .modern-table tbody td:nth-child(3),
+    .modern-table tbody td:nth-child(4) {
+      color: #e2e8f0;
+      font-weight: 500;
+      text-align: right;
+      direction: rtl;
+    }
+    
+    .modern-table tbody td:nth-child(5) {
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 14px;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .modern-table tbody td:nth-child(6) {
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 14px;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .modern-table tbody td:nth-child(7) {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 15px;
+      background: rgba(75, 85, 99, 0.1);
+      border-radius: 8px;
+      margin: 4px;
+      padding: 16px 12px;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .modern-table tbody td:nth-child(8) {
+      color: #e2e8f0;
+      text-align: right;
+      direction: rtl;
+    }
+    
+    .modern-table tbody td:first-child { border-right: none; }
+    .modern-table tbody tr:last-child td { border-bottom: none; }
+    .modern-table tbody tr:last-child td:first-child { border-bottom-right-radius: 16px; }
+    .modern-table tbody tr:last-child td:last-child { border-bottom-left-radius: 16px; }
+    
+    /* ENHANCED FOOTER STYLING */
+    .modern-table tfoot td {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      padding: 24px 16px;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 16px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+      vertical-align: middle;
+      box-shadow: inset 0 2px 0 rgba(100, 116, 139, 0.3);
+    }
+    
+    .modern-table tfoot td:first-child { 
+      border-bottom-right-radius: 16px; 
+      border-right: none; 
+      text-align: center;
+      font-size: 18px;
+      color: #f1f5f9;
+    }
+    .modern-table tfoot td:last-child { 
+      border-bottom-left-radius: 16px; 
+    }
+    
+    .modern-table tfoot td:nth-child(7) {
+      background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    /* Enhanced Supplier Cards */
+    .supplier-card {
+      background: var(--glass);
+      border-radius: 24px;
+      padding: 32px;
+      cursor: pointer;
+      transition: all 0.5s ease;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(15px);
+    }
+    
+    .supplier-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transition: transform 0.4s ease;
+    }
+    
+    .supplier-card:hover::before { transform: scaleX(1); }
+    .supplier-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 50px rgba(100, 116, 139, 0.2);
+      border-color: var(--border-light);
+    }
+    
+    .supplier-card .supplier-icon {
+      background: var(--accent);
+      box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
+      animation: gentlePulse 4s ease-in-out infinite;
+    }
+    
+    /* Pinned Supplier Cards */
+    .supplier-card.pinned {
+      background: var(--glass);
+      border: 1px solid var(--border-light);
+      box-shadow: var(--shadow);
+    }
+    
+    .supplier-card.pinned::before {
+      background: var(--accent);
+      transform: scaleX(1);
+    }
+    
+    .supplier-card.pinned:hover {
+      box-shadow: 0 20px 50px rgba(100, 116, 139, 0.2);
+      border-color: var(--border-light);
+    }
+    
+    .supplier-card.pinned .supplier-icon {
+      background: var(--accent);
+      box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
+    }
+    
+    /* Pin Button */
+    .pin-btn {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(100, 116, 139, 0.2);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 12px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    
+    .pin-btn:hover {
+      background: rgba(100, 116, 139, 0.3);
+      transform: scale(1.1);
+    }
+    
+    .pin-btn.active {
+      background: rgba(100, 116, 139, 0.4);
+      border-color: rgba(100, 116, 139, 0.6);
+      color: #cbd5e1;
+      box-shadow: 0 4px 15px rgba(100, 116, 139, 0.3);
+    }
+    
+    .pin-btn.active:hover {
+      background: rgba(100, 116, 139, 0.5);
+      box-shadow: 0 6px 20px rgba(100, 116, 139, 0.4);
+    }
+    
+    /* Pinned Section Header */
+    .pinned-section {
+      margin-bottom: 32px;
+    }
+    
+    .section-header {
+      margin-bottom: 20px;
+      padding: 16px 24px;
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.2);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .section-header h3 {
+      color: #94a3b8;
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Enhanced Table Action Buttons */
+    .action-btn {
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.2);
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 3px;
+    }
+    
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .action-btn.edit {
+      background: rgba(100, 116, 139, 0.15);
+      border-color: rgba(100, 116, 139, 0.3);
+      color: #94a3b8;
+    }
+    
+    .action-btn.edit:hover {
+      background: rgba(100, 116, 139, 0.25);
+      color: #cbd5e1;
+      box-shadow: 0 6px 15px rgba(100, 116, 139, 0.4);
+    }
+    
+    .action-btn.delete {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    
+    .action-btn.delete:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      box-shadow: 0 6px 15px rgba(239, 68, 68, 0.4);
+    }
+    
+    /* Notes column styling */
+    .notes-cell {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(100, 116, 139, 0.05);
+      text-align: right;
+      direction: rtl;
+      color: #ffffff;
+    }
+    
+    .notes-cell:hover {
+      background: rgba(100, 116, 139, 0.15);
+      transform: scale(1.02);
+    }
+    
+    .notes-cell.empty {
+      color: #e2e8f0;
+      font-style: italic;
+      background: rgba(75, 85, 99, 0.1);
+      text-align: right;
+      direction: rtl;
+    }
+    
+    /* PDF Actions */
+    .pdf-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pdf-btn {
+      background: rgba(100, 116, 139, 0.1);
+      border: 1px solid rgba(100, 116, 139, 0.2);
+      border-radius: 8px;
+      padding: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pdf-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .pdf-btn.view {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+    }
+    
+    .pdf-btn.view:hover {
+      background: rgba(59, 130, 246, 0.25);
+      color: #93c5fd;
+      box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+    }
+    
+    .pdf-btn.download {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+    
+    .pdf-btn.download:hover {
+      background: rgba(16, 185, 129, 0.25);
+      color: #6ee7b7;
+      box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4);
+    }
+    
+    /* File info tooltip */
+    .file-info {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .file-info::after {
+      content: attr(data-info);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-secondary);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .file-info:hover::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(-4px);
+    }
+    
+    /* Notes tooltip */
+    .notes-tooltip {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-secondary);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      white-space: normal;
+      max-width: 300px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      text-align: right;
+      direction: rtl;
+      margin-top: 8px;
+    }
+    
+    .notes-cell:hover .notes-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(4px);
+    }
+    
+    .notes-tooltip::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 6px solid rgba(15, 23, 42, 0.95);
+    }
+    
+    /* Enhanced Edit Invoice Modal */
+    .edit-invoice-modal .modal-content {
+      max-width: 600px;
+      padding: 40px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+      text-align: right;
+    }
+    
+    .form-input {
+      width: 100%;
+      background: rgba(100, 116, 139, 0.15) !important;
+      border: 2px solid rgba(100, 116, 139, 0.4) !important;
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: #f1f5f9 !important;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(15px);
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(100, 116, 139, 0.2) !important;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .form-input:focus {
+      outline: none !important;
+      background: rgba(100, 116, 139, 0.2) !important;
+      border-color: rgba(100, 116, 139, 0.6) !important;
+      box-shadow: 0 0 15px rgba(100, 116, 139, 0.4) !important;
+      color: #ffffff !important;
+    }
+    
+    .form-input::placeholder {
+      color: rgba(241, 245, 249, 0.7) !important;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+    
+    .form-input:hover {
+      background: rgba(100, 116, 139, 0.18) !important;
+      border-color: rgba(100, 116, 139, 0.5) !important;
+      box-shadow: 0 4px 12px rgba(100, 116, 139, 0.25) !important;
+    }
+    
+    /* Search Input Styling */
+    .search-input {
+      background: rgba(100, 116, 139, 0.15) !important;
+      border: 2px solid rgba(100, 116, 139, 0.4) !important;
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #e2e8f0 !important;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(15px);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(100, 116, 139, 0.2) !important;
+      text-align: right;
+      direction: rtl;
+      width: 100%;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .search-input:focus {
+      outline: none !important;
+      background: rgba(100, 116, 139, 0.2) !important;
+      border-color: rgba(100, 116, 139, 0.6) !important;
+      box-shadow: 0 0 20px rgba(100, 116, 139, 0.4) !important;
+      transform: translateY(-1px);
+      color: #f1f5f9 !important;
+    }
+    
+    .search-input::placeholder {
+      color: rgba(241, 245, 249, 0.7) !important;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+    
+    .search-input:hover {
+      background: rgba(100, 116, 139, 0.18) !important;
+      border-color: rgba(100, 116, 139, 0.5) !important;
+      box-shadow: 0 6px 20px rgba(100, 116, 139, 0.25) !important;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    /* Enhanced Delete Confirmation Modal */
+    .delete-modal .modal-content {
+      max-width: 450px;
+      text-align: center;
+    }
+    
+    .delete-icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 12px 30px rgba(239, 68, 68, 0.4);
+      animation: gentlePulse 2s ease-in-out infinite;
+    }
+    
+    .modern-btn.danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+    }
+    
+    .modern-btn.danger:hover {
+      box-shadow: 0 12px 35px rgba(239, 68, 68, 0.5);
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .modern-btn {
+      background: var(--primary);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.4s ease;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .modern-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      transition: left 0.6s ease;
+    }
+    
+    .modern-btn:hover::before { left: 100%; }
+    .modern-btn:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+      border-color: var(--border-light);
+    }
+    
+    .modern-btn.success { background: var(--success); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3); }
+    .modern-btn.warning { background: var(--warning); box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3); }
+    .modern-btn.edit { background: linear-gradient(135deg, #64748b 0%, #475569 100%); box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3); }
+    
+    /* Enhanced Header Icons */
+    .header-icon {
+      background: var(--accent);
+      box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
+      animation: gentlePulse 4s ease-in-out infinite;
+    }
+    
+    /* Enhanced Stats */
+    .stat-item {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+    
+    .stat-item:hover {
+      background: rgba(0, 0, 0, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Enhanced Modal */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .modal.show { display: flex; }
+    
+    .modal-content {
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+      border: 2px solid rgba(148, 163, 184, 0.2);
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(25px);
+      animation: modalSlideIn 0.3s ease forwards;
+      position: relative;
+    }
+    
+    .modal-content::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #64748b 0%, #94a3b8 50%, #cbd5e1 100%);
+      border-radius: 24px 24px 0 0;
+    }
+    
+    .modal-content h3 {
+      color: #f1f5f9;
+      margin-bottom: 8px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modal-content p {
+      color: #cbd5e1;
+      margin-bottom: 24px;
+    }
+    
+    .modal-input {
+      width: 100%;
+      background: rgba(100, 116, 139, 0.15) !important;
+      border: 2px solid rgba(100, 116, 139, 0.4) !important;
+      border-radius: 12px;
+      padding: 16px 20px;
+      color: #f1f5f9 !important;
+      font-size: 16px;
+      font-weight: 500;
+      margin: 16px 0;
+      backdrop-filter: blur(15px);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(100, 116, 139, 0.2) !important;
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+    
+    .modal-input::placeholder {
+      color: rgba(241, 245, 249, 0.7) !important;
+      font-weight: 400;
+      opacity: 0.9;
+    }
+    
+    .modal-input:focus {
+      outline: none !important;
+      background: rgba(100, 116, 139, 0.2) !important;
+      border-color: rgba(100, 116, 139, 0.6) !important;
+      box-shadow: 0 0 25px rgba(100, 116, 139, 0.4) !important;
+      transform: translateY(-1px);
+      color: #ffffff !important;
+    }
+    
+    .modal-input:hover {
+      background: rgba(100, 116, 139, 0.18) !important;
+      border-color: rgba(100, 116, 139, 0.5) !important;
+      box-shadow: 0 6px 20px rgba(100, 116, 139, 0.25) !important;
+    }
+
+    /* Payment Summary Stats Cards */
+    .payment-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .payment-stat-card {
+      background: var(--glass-light);
+      backdrop-filter: blur(15px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .payment-stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      transition: all 0.3s ease;
+    }
+
+    .payment-stat-card.invoices::before { background: var(--info); }
+    .payment-stat-card.payments::before { background: var(--success); }
+    .payment-stat-card.outstanding::before { background: var(--warning); }
+
+    .payment-stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .payment-stat-card:hover::before {
+      height: 6px;
+    }
+
+    .payment-stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      font-family: 'Tajawal', sans-serif;
+    }
+
+    .payment-stat-value.invoices { color: #60a5fa; }
+    .payment-stat-value.payments { color: #34d399; }
+    .payment-stat-value.outstanding { color: #fbbf24; }
+
+    .payment-stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Payment Table Styling */
+    .payment-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .payment-table thead th {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      padding: 16px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #f1f5f9;
+      text-transform: uppercase;
+      border-right: 1px solid var(--border-light);
+      border-bottom: 2px solid var(--border-light);
+      text-align: right;
+      direction: rtl;
+    }
+
+    .payment-table thead th:first-child { border-top-right-radius: 16px; border-right: none; }
+    .payment-table thead th:last-child { border-top-left-radius: 16px; }
+
+    .payment-table tbody tr {
+      transition: all 0.3s ease;
+      background: rgba(15, 23, 42, 0.3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .payment-table tbody tr:nth-child(even) {
+      background: rgba(30, 41, 59, 0.2);
+    }
+
+    .payment-table tbody tr:hover {
+      background: rgba(100, 116, 139, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .payment-table tbody td {
+      padding: 16px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      border-right: 1px solid var(--border);
+      text-align: right;
+      direction: rtl;
+      font-family: 'Tajawal', sans-serif;
+    }
+
+    .payment-table tbody td:first-child { border-right: none; }
+    .payment-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Payment Form */
+    .payment-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .payment-form .form-group {
+      margin-bottom: 0;
+    }
+
+    .payment-form .form-group.full-width {
+      grid-column: span 2;
+    }
+
+    /* General Input Styling Override */
+    input[type="text"], 
+    input[type="number"], 
+    input[type="date"], 
+    input[type="search"], 
+    textarea, 
+    select {
+      background: rgba(100, 116, 139, 0.15) !important;
+      border: 2px solid rgba(100, 116, 139, 0.4) !important;
+      color: #f1f5f9 !important;
+      transition: all 0.3s ease !important;
+      font-family: 'Tajawal', sans-serif !important;
+    }
+    
+    input[type="text"]:focus, 
+    input[type="number"]:focus, 
+    input[type="date"]:focus, 
+    input[type="search"]:focus, 
+    textarea:focus, 
+    select:focus {
+      outline: none !important;
+      background: rgba(100, 116, 139, 0.2) !important;
+      border-color: rgba(100, 116, 139, 0.6) !important;
+      box-shadow: 0 0 20px rgba(100, 116, 139, 0.4) !important;
+      color: #ffffff !important;
+    }
+    
+    input[type="text"]::placeholder, 
+    input[type="number"]::placeholder, 
+    input[type="search"]::placeholder, 
+    textarea::placeholder {
+      color: rgba(241, 245, 249, 0.7) !important;
+      opacity: 0.9 !important;
+    }
+    
+    input[type="text"]:hover, 
+    input[type="number"]:hover, 
+    input[type="date"]:hover, 
+    input[type="search"]:hover, 
+    textarea:hover, 
+    select:hover {
+      background: rgba(100, 116, 139, 0.18) !important;
+      border-color: rgba(100, 116, 139, 0.5) !important;
+    }
+    
+    /* Date input special styling */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: 0.8;
+    }
+    
+    input[type="date"]::-webkit-datetime-edit-text,
+    input[type="date"]::-webkit-datetime-edit-month-field,
+    input[type="date"]::-webkit-datetime-edit-day-field,
+    input[type="date"]::-webkit-datetime-edit-year-field {
+      color: #f1f5f9 !important;
+    }
+    
+    /* Textarea specific styling */
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+    
+    /* Additional Input Overrides */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px rgba(100, 116, 139, 0.15) inset !important;
+      -webkit-text-fill-color: #f1f5f9 !important;
+      border: 2px solid rgba(100, 116, 139, 0.4) !important;
+    }
+    
+    /* Force consistent styling across all input states */
+    .search-input:-webkit-autofill,
+    .modal-input:-webkit-autofill,
+    .form-input:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 30px rgba(100, 116, 139, 0.15) inset !important;
+      -webkit-text-fill-color: #f1f5f9 !important;
+    }
+
+    /* File Viewer Modal */
+    .file-viewer-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+
+    .file-viewer-modal.show { display: flex; }
+
+    .file-viewer-content {
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid rgba(148, 163, 184, 0.2);
+      border-radius: 24px;
+      padding: 20px;
+      max-width: 90vw;
+      max-height: 90vh;
+      width: auto;
+      height: auto;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(25px);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .file-viewer-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .file-viewer-title {
+      color: #f1f5f9;
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+      flex: 1;
+      text-align: right;
+      direction: rtl;
+    }
+
+    .file-viewer-close {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      border: none;
+      border-radius: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .file-viewer-close:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      transform: scale(1.05);
+    }
+
+    .file-viewer-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 16px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .file-viewer-iframe {
+      width: 100%;
+      height: 70vh;
+      border: none;
+      border-radius: 12px;
+      background: white;
+    }
+
+    .file-viewer-image {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .file-viewer-error {
+      text-align: center;
+      color: #f87171;
+      padding: 40px;
+    }
+
+    .file-viewer-error svg {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      opacity: 0.5;
+    }
+    
+    /* RESPONSIVE DESIGN FOR TABLE */
+    @media (max-width: 1200px) {
+      .modern-table { min-width: 1000px; }
+      .modern-table th, .modern-table td { padding: 16px 12px; font-size: 13px; }
+    }
+    
+    @media (max-width: 1024px) {
+      .modern-table { min-width: 900px; }
+      .modern-table th, .modern-table td { padding: 14px 10px; font-size: 12px; }
+      .page-header, .glass-card, .modern-table-container { padding: 24px; }
+      .btn-group { flex-direction: column; align-items: stretch; }
+      .modern-btn { justify-content: center; }
+      .payment-form { grid-template-columns: 1fr; }
+      .payment-form .form-group.full-width { grid-column: span 1; }
+    }
+    
+    @media (max-width: 768px) {
+      .modern-table { min-width: 100%; }
+      .modern-table th, .modern-table td { padding: 12px 8px; font-size: 11px; }
+      .supplier-card { padding: 24px; }
+      .page-header { margin-bottom: 24px; }
+      
+      /* Hide some columns on mobile for better layout */
+      .modern-table th:nth-child(3), .modern-table td:nth-child(3),
+      .modern-table th:nth-child(4), .modern-table td:nth-child(4) { 
+        display: none; 
+      }
+      
+      /* Redistribute column widths for mobile */
+      .modern-table th:nth-child(1), .modern-table td:nth-child(1) { width: 15%; }
+      .modern-table th:nth-child(2), .modern-table td:nth-child(2) { width: 15%; }
+      .modern-table th:nth-child(5), .modern-table td:nth-child(5) { width: 18%; }
+      .modern-table th:nth-child(6), .modern-table td:nth-child(6) { width: 15%; }
+      .modern-table th:nth-child(7), .modern-table td:nth-child(7) { width: 18%; }
+      .modern-table th:nth-child(8), .modern-table td:nth-child(8) { width: 25%; }
+      .modern-table th:nth-child(9), .modern-table td:nth-child(9) { width: 8%; }
+      .modern-table th:nth-child(10), .modern-table td:nth-child(10) { width: 6%; }
+      
+      .pdf-actions { flex-direction: column; gap: 3px; }
+      .pdf-btn { padding: 4px; }
+      
+      .notes-cell { max-width: 120px; }
+      .notes-tooltip { max-width: 250px; font-size: 12px; }
+
+      .payment-stats { grid-template-columns: 1fr; }
+
+      .file-viewer-content {
+        max-width: 95vw;
+        max-height: 95vh;
+        padding: 16px;
+      }
+
+      .file-viewer-iframe {
+        height: 60vh;
+      }
+
+      .file-viewer-image {
+        max-height: 60vh;
+      }
+    }
+  </style>
+</head>
+<body class="flex bg-gray-900 text-gray-100 min-h-screen">
+  <!-- Sidebar -->
+  <aside class="sidebar w-64 flex flex-col p-8 hidden md:block">
+    <div class="text-center mb-12">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 bg-clip-text text-transparent">المشتريات</h1>
+      <div class="w-20 h-1 bg-gradient-to-r from-slate-500 to-slate-400 mx-auto mt-3 rounded-full"></div>
+    </div>
+    <nav class="space-y-4 flex-1">
+      <a href="home.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+          </svg>
+          لوحة المعلومات
+        </span>
+      </a>
+      <a href="add.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          إضافة فاتورة
+        </span>
+      </a>
+      <a href="view.html" class="nav-link active block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          عرض الفواتير
+        </span>
+      </a>
+      <a href="purchase-orders.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+          </svg>
+          أوامر الشراء
+        </span>
+      </a>
+    </nav>
+  </aside>
+  
+  <!-- Main Content -->
+  <main class="flex-1 p-8 space-y-8">
+    <!-- Supplier List -->
+    <section id="supplier-list" class="space-y-8 fade-up">
+      <div class="page-header">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 class="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2">الموردين</h2>
+            <p class="text-slate-400 text-base">اختر موردًا لعرض فواتيره ومدفوعاته، أو اضغط على 
+              <svg class="w-4 h-4 inline mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+              </svg>
+              لتثبيت الموردين المهمين في الأعلى
+            </p>
+          </div>
+          <div class="flex items-center gap-4">
+            <button id="refresh-data-btn" class="modern-btn" title="إعادة تحميل البيانات">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              تحديث
+            </button>
+            <div class="hidden md:block relative">
+              <div class="w-16 h-16 header-icon rounded-2xl flex items-center justify-center">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Suppliers Search -->
+        <div class="mt-6">
+          <div class="relative max-w-md">
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <input type="text" id="supplier-search" class="search-input pr-10" placeholder="البحث في الموردين...">
+          </div>
+        </div>
+      </div>
+      <div id="suppliers-container" class="space-y-8"></div>
+    </section>
+    
+    <!-- Invoices per Supplier -->
+    <section id="supplier-invoices" class="hidden space-y-8">
+      <div class="page-header">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 id="supplier-title" class="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2"></h2>
+            <p class="text-slate-400 text-base">جميع فواتير ومدفوعات هذا المورد مرتبة ومنسقة بشكل احترافي</p>
+          </div>
+          <div class="btn-group">
+            <button id="edit-supplier-btn" class="modern-btn edit">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
+              تعديل اسم المورد
+            </button>
+            <button id="export-btn" class="modern-btn success">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              تصدير Excel
+            </button>
+            <button id="back-btn" class="modern-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+              العودة للموردين
+            </button>
+          </div>
+        </div>
+        
+        <!-- Payment Summary -->
+        <div class="payment-stats">
+          <div class="payment-stat-card invoices">
+            <div class="payment-stat-value invoices" id="supplier-invoices-total">0 ر.س</div>
+            <div class="payment-stat-label">إجمالي الفواتير</div>
+          </div>
+          <div class="payment-stat-card payments">
+            <div class="payment-stat-value payments" id="supplier-payments-total">0 ر.س</div>
+            <div class="payment-stat-label">إجمالي المدفوعات</div>
+          </div>
+          <div class="payment-stat-card outstanding">
+            <div class="payment-stat-value outstanding" id="supplier-outstanding-total">0 ر.س</div>
+            <div class="payment-stat-label">المبلغ المستحق</div>
+          </div>
+        </div>
+        
+        <!-- Search -->
+        <div class="mt-6">
+          <div class="relative max-w-md">
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <input type="text" id="invoice-search" class="search-input pr-10" placeholder="البحث برقم الفاتورة...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Management Section -->
+      <div class="glass-card fade-up">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-2xl font-bold text-slate-200 mb-2">إدارة المدفوعات</h3>
+            <p class="text-slate-400 text-sm">تسجيل وإدارة مدفوعات المورد</p>
+          </div>
+          <button id="add-payment-btn" class="modern-btn success">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            إضافة دفعة جديدة
+          </button>
+        </div>
+
+        <!-- Payments Table -->
+        <div class="modern-table-container">
+          <table class="payment-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المبلغ</th>
+                <th>الملاحظات</th>
+                <th>العمليات</th>
+              </tr>
+            </thead>
+            <tbody id="payments-table-body">
+              <!-- Payment rows will be rendered here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Invoices Table -->
+      <div class="modern-table-container fade-up">
+        <table id="invoices-table" class="modern-table">
+          <thead>
+            <tr>
+              <th class="sortable-header" data-column="invoiceNumber">
+                رقم الفاتورة
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="date">
+                التاريخ
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="type">
+                نوع الفاتورة
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="category">
+                الفئة
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="amountBeforeTax">
+                المبلغ قبل الضريبة
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="taxAmount">
+                الضريبة
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="totalAmount">
+                الإجمالي
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th class="sortable-header" data-column="notes">
+                الملاحظات
+                <svg class="sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+              </th>
+              <th>PDF</th>
+              <th>العمليات</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="text-center">الإجمالي الكلي</td>
+              <td id="total-all" class="font-bold text-lg"></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+  
+  <!-- Edit Supplier Modal -->
+  <div id="edit-modal" class="modal">
+    <div class="modal-content">
+      <h3 class="text-2xl font-bold mb-2">تعديل اسم المورد</h3>
+      <p class="mb-4">ادخل الاسم الجديد للمورد</p>
+      <input type="text" id="new-supplier-name" class="modal-input" placeholder="ادخل اسم المورد الجديد..." autocomplete="off">
+      <div class="btn-group mt-8">
+        <button id="save-supplier-btn" class="modern-btn success" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          حفظ التغييرات
+        </button>
+        <button id="cancel-edit-btn" class="modern-btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow: 0 8px 25px rgba(107, 114, 128, 0.3);">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Edit Invoice Modal -->
+  <div id="edit-invoice-modal" class="modal edit-invoice-modal">
+    <div class="modal-content">
+      <h3 class="text-2xl font-bold mb-2">تعديل الفاتورة</h3>
+      <p class="mb-6">تعديل بيانات الفاتورة</p>
+      
+      <form id="edit-invoice-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">رقم الفاتورة</label>
+            <input type="text" id="edit-invoice-number" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">التاريخ</label>
+            <input type="date" id="edit-invoice-date" class="form-input" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">نوع الفاتورة</label>
+            <input type="text" id="edit-invoice-type" class="form-input" placeholder="مثال: فاتورة شراء، فاتورة خدمة..." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">الفئة</label>
+            <input type="text" id="edit-invoice-category" class="form-input" placeholder="مثال: مكتبية، تقنية، خدمات..." required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">المبلغ قبل الضريبة</label>
+            <input type="number" id="edit-amount-before-tax" class="form-input" step="0.01" min="0" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">الضريبة</label>
+            <input type="number" id="edit-tax-amount" class="form-input" step="0.01" min="0" required>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">المورد</label>
+          <input type="text" id="edit-supplier" class="form-input" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">الملاحظات</label>
+          <textarea id="edit-notes" class="form-input" rows="3" placeholder="أضف ملاحظات..."></textarea>
+        </div>
+      </form>
+      
+      <div class="btn-group mt-8">
+        <button id="update-invoice-btn" class="modern-btn success">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          حفظ التغييرات
+        </button>
+        <button id="cancel-edit-invoice-btn" class="modern-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal delete-modal">
+    <div class="modal-content">
+      <div class="delete-icon">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </div>
+      <h3 class="text-2xl font-bold mb-4 text-slate-200">حذف الفاتورة</h3>
+      <p class="text-slate-400 mb-6">هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.</p>
+      <div id="invoice-details" class="bg-slate-800/50 rounded-2xl p-4 mb-6 text-right"></div>
+      
+      <div class="btn-group">
+        <button id="confirm-delete-btn" class="modern-btn danger">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          حذف الفاتورة
+        </button>
+        <button id="cancel-delete-btn" class="modern-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Payment Modal -->
+  <div id="add-payment-modal" class="modal">
+    <div class="modal-content">
+      <h3 class="text-2xl font-bold mb-2">إضافة دفعة جديدة</h3>
+      <p class="mb-6">تسجيل دفعة جديدة للمورد</p>
+      
+      <form id="add-payment-form">
+        <div class="payment-form">
+          <div class="form-group">
+            <label class="form-label">مبلغ الدفعة</label>
+            <input type="number" id="payment-amount" class="form-input" step="0.01" min="0" required placeholder="أدخل مبلغ الدفعة">
+          </div>
+          <div class="form-group">
+            <label class="form-label">تاريخ الدفعة</label>
+            <input type="date" id="payment-date" class="form-input" required>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">ملاحظات الدفعة</label>
+            <textarea id="payment-notes" class="form-input" rows="3" placeholder="أضف ملاحظات عن الدفعة (اختياري)"></textarea>
+          </div>
+        </div>
+      </form>
+      
+      <div class="btn-group mt-8">
+        <button id="save-payment-btn" class="modern-btn success">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          حفظ الدفعة
+        </button>
+        <button id="cancel-payment-btn" class="modern-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Payment Modal -->
+  <div id="edit-payment-modal" class="modal">
+    <div class="modal-content">
+      <h3 class="text-2xl font-bold mb-2">تعديل الدفعة</h3>
+      <p class="mb-6">تعديل بيانات الدفعة</p>
+      
+      <form id="edit-payment-form">
+        <div class="payment-form">
+          <div class="form-group">
+            <label class="form-label">مبلغ الدفعة</label>
+            <input type="number" id="edit-payment-amount" class="form-input" step="0.01" min="0" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">تاريخ الدفعة</label>
+            <input type="date" id="edit-payment-date" class="form-input" required>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">ملاحظات الدفعة</label>
+            <textarea id="edit-payment-notes" class="form-input" rows="3" placeholder="أضف ملاحظات عن الدفعة (اختياري)"></textarea>
+          </div>
+        </div>
+      </form>
+      
+      <div class="btn-group mt-8">
+        <button id="update-payment-btn" class="modern-btn success">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          حفظ التغييرات
+        </button>
+        <button id="cancel-edit-payment-btn" class="modern-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Payment Modal -->
+  <div id="delete-payment-modal" class="modal delete-modal">
+    <div class="modal-content">
+      <div class="delete-icon">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </div>
+      <h3 class="text-2xl font-bold mb-4 text-slate-200">حذف الدفعة</h3>
+      <p class="text-slate-400 mb-6">هل أنت متأكد من حذف هذه الدفعة؟ لا يمكن التراجع عن هذا الإجراء.</p>
+      <div id="payment-details" class="bg-slate-800/50 rounded-2xl p-4 mb-6 text-right"></div>
+      
+      <div class="btn-group">
+        <button id="confirm-delete-payment-btn" class="modern-btn danger">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          حذف الدفعة
+        </button>
+        <button id="cancel-delete-payment-btn" class="modern-btn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Viewer Modal -->
+  <div id="file-viewer-modal" class="file-viewer-modal">
+    <div class="file-viewer-content">
+      <div class="file-viewer-header">
+        <h3 id="file-viewer-title" class="file-viewer-title">عرض الملف</h3>
+        <button id="file-viewer-close" class="file-viewer-close">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+          إغلاق
+        </button>
+      </div>
+      <div id="file-viewer-body" class="file-viewer-body">
+        <!-- File content will be loaded here -->
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+        let payments = JSON.parse(localStorage.getItem('payments') || '[]');
+        
+        // إضافة بيانات تجريبية إذا لم توجد بيانات
+        if (invoices.length === 0) {
+          console.log('📦 لا توجد بيانات، جاري إضافة بيانات تجريبية...');
+          invoices = [
+            {
+              id: 'inv001',
+              invoiceNumber: 'INV-2024-001',
+              date: '2024-01-15',
+              type: 'فاتورة شراء',
+              category: 'مكتبية',
+              supplier: 'شركة المكتب الحديث',
+              amountBeforeTax: 1000,
+              taxAmount: 150,
+              totalAmount: 1150,
+              notes: 'أدوات مكتبية متنوعة للمكتب الرئيسي',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'inv002',
+              invoiceNumber: 'INV-2024-002',
+              date: '2024-01-18',
+              type: 'فاتورة خدمة',
+              category: 'تقنية',
+              supplier: 'مؤسسة التقنية المتطورة',
+              amountBeforeTax: 2500,
+              taxAmount: 375,
+              totalAmount: 2875,
+              notes: 'صيانة أجهزة الكمبيوتر والشبكات',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'inv003',
+              invoiceNumber: 'INV-2024-003',
+              date: '2024-01-20',
+              type: 'فاتورة شراء',
+              category: 'أثاث',
+              supplier: 'معرض الأثاث المميز',
+              amountBeforeTax: 5000,
+              taxAmount: 750,
+              totalAmount: 5750,
+              notes: 'كراسي وطاولات مكتبية جديدة',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'inv004',
+              invoiceNumber: 'INV-2024-004',
+              date: '2024-01-22',
+              type: 'فاتورة شراء',
+              category: 'مكتبية',
+              supplier: 'شركة المكتب الحديث',
+              amountBeforeTax: 800,
+              taxAmount: 120,
+              totalAmount: 920,
+              notes: 'طابعات وحبر للأقسام',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'inv005',
+              invoiceNumber: 'INV-2024-005',
+              date: '2024-01-25',
+              type: 'فاتورة خدمة',
+              category: 'صيانة',
+              supplier: 'مركز الصيانة الشامل',
+              amountBeforeTax: 1200,
+              taxAmount: 180,
+              totalAmount: 1380,
+              notes: 'صيانة دورية لأجهزة التكييف',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'inv006',
+              invoiceNumber: 'INV-2024-006',
+              date: '2024-01-28',
+              type: 'فاتورة شراء',
+              category: 'تقنية',
+              supplier: 'مؤسسة التقنية المتطورة',
+              amountBeforeTax: 3000,
+              taxAmount: 450,
+              totalAmount: 3450,
+              notes: 'أجهزة كمبيوتر محمولة جديدة',
+              createdAt: new Date().toISOString()
+            }
+          ];
+          localStorage.setItem('invoices', JSON.stringify(invoices));
+          console.log('✅ تم إضافة البيانات التجريبية بنجاح');
+        }
+
+        // إضافة بيانات مدفوعات تجريبية
+        if (payments.length === 0) {
+          payments = [
+            {
+              id: 'pay001',
+              supplier: 'شركة المكتب الحديث',
+              amount: 1000,
+              date: '2024-01-20',
+              notes: 'دفعة أولى من فواتير يناير',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'pay002',
+              supplier: 'مؤسسة التقنية المتطورة',
+              amount: 2000,
+              date: '2024-01-25',
+              notes: 'دفعة جزئية لخدمات الصيانة',
+              createdAt: new Date().toISOString()
+            }
+          ];
+          localStorage.setItem('payments', JSON.stringify(payments));
+        }
+        
+        let currentSupplier = '';
+        let currentEditingInvoice = null;
+        let currentDeletingInvoice = null;
+        let currentEditingPayment = null;
+        let currentDeletingPayment = null;
+        let filteredSuppliers = {};
+        let filteredInvoices = [];
+        let currentSort = { column: null, direction: 'asc' };
+        let pinnedSuppliers = JSON.parse(localStorage.getItem('pinnedSuppliers') || '[]');
+        
+        // Store for file data - keeps file data in memory to avoid long HTML attributes
+        let fileDataStore = {};
+      
+      // DOM Elements
+      const elements = {
+        supplierList: document.getElementById('supplier-list'),
+        suppliersContainer: document.getElementById('suppliers-container'),
+        invoicesSection: document.getElementById('supplier-invoices'),
+        supplierTitle: document.getElementById('supplier-title'),
+        invoicesTableBody: document.querySelector('#invoices-table tbody'),
+        totalAllEl: document.getElementById('total-all'),
+        exportBtn: document.getElementById('export-btn'),
+        backBtn: document.getElementById('back-btn'),
+        editSupplierBtn: document.getElementById('edit-supplier-btn'),
+        editModal: document.getElementById('edit-modal'),
+        newSupplierName: document.getElementById('new-supplier-name'),
+        saveSupplierBtn: document.getElementById('save-supplier-btn'),
+        cancelEditBtn: document.getElementById('cancel-edit-btn'),
+        // Search Elements
+        supplierSearch: document.getElementById('supplier-search'),
+        invoiceSearch: document.getElementById('invoice-search'),
+        // Invoice Edit Elements
+        editInvoiceModal: document.getElementById('edit-invoice-modal'),
+        editInvoiceNumber: document.getElementById('edit-invoice-number'),
+        editInvoiceDate: document.getElementById('edit-invoice-date'),
+        editInvoiceType: document.getElementById('edit-invoice-type'),
+        editInvoiceCategory: document.getElementById('edit-invoice-category'),
+        editAmountBeforeTax: document.getElementById('edit-amount-before-tax'),
+        editTaxAmount: document.getElementById('edit-tax-amount'),
+        editSupplier: document.getElementById('edit-supplier'),
+        editNotes: document.getElementById('edit-notes'),
+        updateInvoiceBtn: document.getElementById('update-invoice-btn'),
+        cancelEditInvoiceBtn: document.getElementById('cancel-edit-invoice-btn'),
+        // Delete Elements
+        deleteModal: document.getElementById('delete-modal'),
+        invoiceDetails: document.getElementById('invoice-details'),
+        confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
+        cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
+        // Payment Elements
+        addPaymentBtn: document.getElementById('add-payment-btn'),
+        addPaymentModal: document.getElementById('add-payment-modal'),
+        paymentAmount: document.getElementById('payment-amount'),
+        paymentDate: document.getElementById('payment-date'),
+        paymentNotes: document.getElementById('payment-notes'),
+        savePaymentBtn: document.getElementById('save-payment-btn'),
+        cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
+        paymentsTableBody: document.getElementById('payments-table-body'),
+        // Edit Payment Elements
+        editPaymentModal: document.getElementById('edit-payment-modal'),
+        editPaymentAmount: document.getElementById('edit-payment-amount'),
+        editPaymentDate: document.getElementById('edit-payment-date'),
+        editPaymentNotes: document.getElementById('edit-payment-notes'),
+        updatePaymentBtn: document.getElementById('update-payment-btn'),
+        cancelEditPaymentBtn: document.getElementById('cancel-edit-payment-btn'),
+        // Delete Payment Elements
+        deletePaymentModal: document.getElementById('delete-payment-modal'),
+        paymentDetails: document.getElementById('payment-details'),
+        confirmDeletePaymentBtn: document.getElementById('confirm-delete-payment-btn'),
+        cancelDeletePaymentBtn: document.getElementById('cancel-delete-payment-btn'),
+        // Payment Stats Elements
+        supplierInvoicesTotal: document.getElementById('supplier-invoices-total'),
+        supplierPaymentsTotal: document.getElementById('supplier-payments-total'),
+        supplierOutstandingTotal: document.getElementById('supplier-outstanding-total'),
+        // File Viewer Elements
+        fileViewerModal: document.getElementById('file-viewer-modal'),
+        fileViewerTitle: document.getElementById('file-viewer-title'),
+        fileViewerBody: document.getElementById('file-viewer-body'),
+        fileViewerClose: document.getElementById('file-viewer-close')
+      };
+
+      // File Viewer Functions
+      function openFileViewer(invoiceId, fileName) {
+        const invoice = invoices.find(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
+        );
+        
+        if (!invoice || !invoice.fileData) {
+          showFileError('الملف غير متوفر أو تالف');
+          return;
+        }
+
+        elements.fileViewerTitle.textContent = fileName || 'عرض الملف';
+        elements.fileViewerModal.classList.add('show');
+        
+        try {
+          const fileType = invoice.fileType || '';
+          const fileData = invoice.fileData;
+          
+          if (fileType.includes('pdf')) {
+            // عرض PDF
+            elements.fileViewerBody.innerHTML = `
+              <iframe 
+                src="${fileData}" 
+                class="file-viewer-iframe"
+                title="PDF Viewer"
+              ></iframe>
+            `;
+          } else if (fileType.includes('image') || fileType.includes('jpeg') || fileType.includes('jpg') || fileType.includes('png')) {
+            // عرض الصورة
+            elements.fileViewerBody.innerHTML = `
+              <img 
+                src="${fileData}" 
+                class="file-viewer-image" 
+                alt="${fileName || 'صورة الفاتورة'}"
+                onload="console.log('تم تحميل الصورة بنجاح')"
+                onerror="console.error('خطأ في تحميل الصورة'); showFileError('خطأ في تحميل الصورة')"
+              />
+            `;
+          } else {
+            // نوع ملف غير مدعوم
+            showFileError('نوع الملف غير مدعوم للعرض المباشر');
+          }
+        } catch (error) {
+          console.error('خطأ في عرض الملف:', error);
+          showFileError('حدث خطأ في عرض الملف');
+        }
+      }
+
+      function showFileError(message) {
+        elements.fileViewerBody.innerHTML = `
+          <div class="file-viewer-error">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            <h4 class="text-lg font-semibold mb-2">لا يمكن عرض الملف</h4>
+            <p class="text-slate-400">${message}</p>
+          </div>
+        `;
+      }
+
+      function closeFileViewer() {
+        elements.fileViewerModal.classList.remove('show');
+        elements.fileViewerBody.innerHTML = '';
+      }
+
+      // إغلاق File Viewer
+      elements.fileViewerClose.addEventListener('click', closeFileViewer);
+      elements.fileViewerModal.addEventListener('click', (e) => {
+        if (e.target === elements.fileViewerModal) {
+          closeFileViewer();
+        }
+      });
+
+      // Payment Management Functions
+      function calculateSupplierStats(supplierName) {
+        const supplierInvoices = invoices.filter(inv => inv.supplier === supplierName);
+        const supplierPayments = payments.filter(pay => pay.supplier === supplierName);
+        
+        const totalInvoices = supplierInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+        const totalPayments = supplierPayments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
+        const outstanding = totalInvoices - totalPayments;
+        
+        return {
+          totalInvoices,
+          totalPayments,
+          outstanding: Math.max(0, outstanding)
+        };
+      }
+
+      function updatePaymentStats() {
+        if (!currentSupplier) return;
+        
+        const stats = calculateSupplierStats(currentSupplier);
+        
+        elements.supplierInvoicesTotal.textContent = formatCurrency(stats.totalInvoices);
+        elements.supplierPaymentsTotal.textContent = formatCurrency(stats.totalPayments);
+        elements.supplierOutstandingTotal.textContent = formatCurrency(stats.outstanding);
+      }
+
+      function renderPaymentsTable() {
+        if (!currentSupplier) return;
+        
+        const supplierPayments = payments.filter(pay => pay.supplier === currentSupplier);
+        elements.paymentsTableBody.innerHTML = '';
+        
+        if (supplierPayments.length === 0) {
+          elements.paymentsTableBody.innerHTML = `
+            <tr>
+              <td colspan="4" class="text-center py-12 text-slate-400">
+                <div class="flex flex-col items-center gap-4">
+                  <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                  </svg>
+                  <div>
+                    <p class="font-semibold mb-1">لا توجد مدفوعات مسجلة</p>
+                    <p class="text-sm">اضغط على "إضافة دفعة جديدة" لتسجيل أول دفعة</p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+        
+        // Sort payments by date (newest first)
+        supplierPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        supplierPayments.forEach((payment, index) => {
+          const row = document.createElement('tr');
+          row.className = 'fade-up';
+          row.style.animationDelay = `${index * 0.05}s`;
+          
+          row.innerHTML = `
+            <td class="font-semibold text-white">${payment.date}</td>
+            <td class="font-bold text-green-300">${formatCurrency(payment.amount)}</td>
+            <td class="text-slate-300">${payment.notes || 'لا توجد ملاحظات'}</td>
+            <td>
+              <div class="flex gap-1 justify-center">
+                <button class="action-btn edit" onclick="editPayment('${payment.id}')" title="تعديل">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
+                <button class="action-btn delete" onclick="deletePayment('${payment.id}')" title="حذف">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          `;
+          
+          elements.paymentsTableBody.appendChild(row);
+        });
+      }
+
+      function addPayment() {
+        // Set today's date as default
+        elements.paymentDate.value = new Date().toISOString().split('T')[0];
+        elements.paymentAmount.value = '';
+        elements.paymentNotes.value = '';
+        elements.addPaymentModal.classList.add('show');
+        setTimeout(() => elements.paymentAmount.focus(), 100);
+      }
+
+      function savePayment() {
+        const amount = parseFloat(elements.paymentAmount.value);
+        const date = elements.paymentDate.value;
+        const notes = elements.paymentNotes.value.trim();
+        
+        if (!amount || amount <= 0 || !date) {
+          alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
+          return;
+        }
+        
+        const newPayment = {
+          id: 'pay' + Date.now(),
+          supplier: currentSupplier,
+          amount: amount,
+          date: date,
+          notes: notes,
+          createdAt: new Date().toISOString()
+        };
+        
+        payments.push(newPayment);
+        localStorage.setItem('payments', JSON.stringify(payments));
+        
+        elements.addPaymentModal.classList.remove('show');
+        renderPaymentsTable();
+        updatePaymentStats();
+        
+        // Show success feedback
+        const originalText = elements.savePaymentBtn.innerHTML;
+        elements.savePaymentBtn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          تم الحفظ
+        `;
+        setTimeout(() => {
+          elements.savePaymentBtn.innerHTML = originalText;
+        }, 2000);
+      }
+
+      // Global payment functions
+      window.editPayment = function(paymentId) {
+        const payment = payments.find(pay => pay.id === paymentId);
+        if (!payment) return;
+        
+        currentEditingPayment = payment;
+        
+        elements.editPaymentAmount.value = payment.amount;
+        elements.editPaymentDate.value = payment.date;
+        elements.editPaymentNotes.value = payment.notes || '';
+        
+        elements.editPaymentModal.classList.add('show');
+      };
+
+      function updatePayment() {
+        if (!currentEditingPayment) return;
+        
+        const amount = parseFloat(elements.editPaymentAmount.value);
+        const date = elements.editPaymentDate.value;
+        const notes = elements.editPaymentNotes.value.trim();
+        
+        if (!amount || amount <= 0 || !date) {
+          alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
+          return;
+        }
+        
+        const index = payments.findIndex(pay => pay.id === currentEditingPayment.id);
+        if (index !== -1) {
+          payments[index] = {
+            ...currentEditingPayment,
+            amount: amount,
+            date: date,
+            notes: notes,
+            updatedAt: new Date().toISOString()
+          };
+          
+          localStorage.setItem('payments', JSON.stringify(payments));
+          
+          elements.editPaymentModal.classList.remove('show');
+          renderPaymentsTable();
+          updatePaymentStats();
+          
+          // Show success feedback
+          const originalText = elements.updatePaymentBtn.innerHTML;
+          elements.updatePaymentBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            تم التحديث
+          `;
+          setTimeout(() => {
+            elements.updatePaymentBtn.innerHTML = originalText;
+          }, 2000);
+        }
+      }
+
+      window.deletePayment = function(paymentId) {
+        const payment = payments.find(pay => pay.id === paymentId);
+        if (!payment) return;
+        
+        currentDeletingPayment = payment;
+        
+        elements.paymentDetails.innerHTML = `
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-400">تاريخ الدفعة:</span>
+              <span class="text-slate-200">${payment.date}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">المبلغ:</span>
+              <span class="text-slate-200 font-bold">${formatCurrency(payment.amount)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">المورد:</span>
+              <span class="text-slate-200">${payment.supplier}</span>
+            </div>
+            ${payment.notes ? `
+              <div class="flex justify-between">
+                <span class="text-slate-400">الملاحظات:</span>
+                <span class="text-slate-200">${payment.notes}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        
+        elements.deletePaymentModal.classList.add('show');
+      };
+
+      function confirmDeletePayment() {
+        if (!currentDeletingPayment) return;
+        
+        payments = payments.filter(pay => pay.id !== currentDeletingPayment.id);
+        localStorage.setItem('payments', JSON.stringify(payments));
+        
+        elements.deletePaymentModal.classList.remove('show');
+        renderPaymentsTable();
+        updatePaymentStats();
+        currentDeletingPayment = null;
+      }
+
+      // Formatting utility
+      function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US').format(amount || 0) + ' ر.س';
+      }
+      
+      // Sorting functionality
+      function sortInvoices(column, direction) {
+        filteredInvoices.sort((a, b) => {
+          let aVal = a[column];
+          let bVal = b[column];
+          
+          // Handle different data types
+          if (column === 'date') {
+            aVal = new Date(aVal);
+            bVal = new Date(bVal);
+          } else if (column === 'amountBeforeTax' || column === 'taxAmount' || column === 'totalAmount') {
+            aVal = parseFloat(aVal);
+            bVal = parseFloat(bVal);
+          } else if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+          }
+          
+          if (direction === 'asc') {
+            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+          } else {
+            return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+          }
+        });
+        
+        renderFilteredInvoices();
+      }
+      
+      // Handle sort header clicks
+      function handleSortClick(e) {
+        const header = e.currentTarget;
+        const column = header.dataset.column;
+        
+        // Remove existing sort classes from all headers
+        document.querySelectorAll('.sortable-header').forEach(h => {
+          h.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        // Determine sort direction
+        let direction = 'asc';
+        if (currentSort.column === column && currentSort.direction === 'asc') {
+          direction = 'desc';
+        }
+        
+        // Update current sort state
+        currentSort = { column, direction };
+        
+        // Add sort class to current header
+        header.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        
+        // Perform sort
+        sortInvoices(column, direction);
+      }
+      
+      // Add event listeners to sortable headers
+      function initializeSortHandlers() {
+        document.querySelectorAll('.sortable-header').forEach(header => {
+          header.addEventListener('click', handleSortClick);
+        });
+      }
+      
+      // Pin/Unpin supplier functions
+      function isSupplierPinned(supplierName) {
+        return pinnedSuppliers.includes(supplierName);
+      }
+      
+      // Filter suppliers by name
+      function filterSuppliers(searchTerm) {
+        const bySupplier = invoices.reduce((acc, inv) => { 
+          acc[inv.supplier] = acc[inv.supplier] || []; 
+          acc[inv.supplier].push(inv); 
+          return acc; 
+        }, {});
+        
+        if (!searchTerm.trim()) {
+          filteredSuppliers = bySupplier;
+        } else {
+          filteredSuppliers = {};
+          Object.keys(bySupplier).forEach(supplier => {
+            if (supplier.toLowerCase().includes(searchTerm.toLowerCase())) {
+              filteredSuppliers[supplier] = bySupplier[supplier];
+            }
+          });
+        }
+        
+        renderFilteredSuppliers();
+      }
+      
+      // Filter invoices by invoice number
+      function filterInvoices(searchTerm) {
+        const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
+        
+        if (!searchTerm.trim()) {
+          filteredInvoices = supplierInvoices;
+        } else {
+          filteredInvoices = supplierInvoices.filter(inv => 
+            inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        }
+        
+        // Apply current sort if any
+        if (currentSort.column) {
+          sortInvoices(currentSort.column, currentSort.direction);
+        } else {
+          renderFilteredInvoices();
+        }
+      }
+      
+      // Create file download link - FIXED VERSION
+      function createFileLink(invoice) {
+        const invoiceId = invoice.id || `${invoice.invoiceNumber}-${invoice.date}-${invoice.supplier}`;
+        
+        // Handle both new fileData format and old fileURL format
+        if (invoice.fileData && invoice.fileData.startsWith('data:')) {
+          // Store file data in memory to avoid long HTML attributes
+          fileDataStore[invoiceId] = {
+            data: invoice.fileData,
+            type: invoice.fileType || 'application/pdf',
+            name: invoice.fileName || `${invoice.invoiceNumber}.pdf`,
+            size: invoice.fileSize
+          };
+          
+          const fileSize = invoice.fileSize ? `(${(invoice.fileSize / 1024 / 1024).toFixed(2)} MB)` : '';
+          const fileType = invoice.fileType?.includes('pdf') ? 'PDF' : 'صورة';
+          
+          return `
+            <div class="pdf-actions">
+              <button class="pdf-btn view file-info" 
+                      data-info="${invoice.fileName || 'ملف'} - ${fileType} ${fileSize}"
+                      onclick="viewFile('${invoiceId}', '${invoice.fileName || 'ملف'}')"
+                      title="عرض الملف">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+              </button>
+              <button class="pdf-btn download" 
+                      onclick="downloadFile('${invoiceId}')"
+                      title="تحميل الملف">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </button>
+            </div>
+          `;
+        } else if (invoice.fileURL) {
+          // Legacy support for old fileURL format
+          return `
+            <div class="pdf-actions">
+              <button class="pdf-btn view file-info" 
+                      data-info="${invoice.fileName || 'ملف قديم'}"
+                      onclick="viewLegacyFile('${invoice.fileURL}')"
+                      title="عرض الملف">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+              </button>
+              <span class="text-xs text-slate-500">ملف قديم</span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="pdf-actions">
+              <span class="text-xs text-slate-500">لا يوجد ملف</span>
+            </div>
+          `;
+        }
+      }
+      
+      // FIXED View file function
+      window.viewFile = function(invoiceId, fileName) {
+        console.log('🔍 محاولة عرض الملف:', { invoiceId, fileName });
+        
+        // Try to get file from store first
+        const fileInfo = fileDataStore[invoiceId];
+        if (fileInfo) {
+          console.log('✅ تم العثور على الملف في المخزن:', fileInfo.name);
+          openFileViewer(invoiceId, fileName || fileInfo.name);
+          return;
+        }
+        
+        // Fallback: get from invoice data directly
+        const invoice = invoices.find(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
+        );
+        
+        if (invoice && invoice.fileData) {
+          console.log('✅ تم العثور على الملف في الفاتورة مباشرة');
+          openFileViewer(invoiceId, fileName || invoice.fileName || 'ملف');
+        } else {
+          console.error('❌ لم يتم العثور على الملف');
+          alert('عذراً، لا يمكن العثور على الملف المطلوب');
+        }
+      };
+      
+      // Download file function - FIXED
+      window.downloadFile = function(invoiceId) {
+        console.log('⬇️ محاولة تحميل الملف:', invoiceId);
+        
+        // Try to get file from store first
+        let fileInfo = fileDataStore[invoiceId];
+        let fileData, fileName, fileType;
+        
+        if (fileInfo) {
+          fileData = fileInfo.data;
+          fileName = fileInfo.name;
+          fileType = fileInfo.type;
+        } else {
+          // Fallback: get from invoice data directly
+          const invoice = invoices.find(inv => 
+            (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
+          );
+          
+          if (invoice && invoice.fileData) {
+            fileData = invoice.fileData;
+            fileName = invoice.fileName || `invoice_${invoiceId}.pdf`;
+            fileType = invoice.fileType || 'application/pdf';
+          } else {
+            console.error('❌ لم يتم العثور على الملف للتحميل');
+            alert('عذراً، لا يمكن العثور على الملف للتحميل');
+            return;
+          }
+        }
+        
+        if (!fileData) {
+          alert('عذراً، بيانات الملف غير متوفرة');
+          return;
+        }
+        
+        try {
+          // Create download link
+          const link = document.createElement('a');
+          link.href = fileData;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          console.log('✅ تم بدء تحميل الملف:', fileName);
+        } catch (error) {
+          console.error('❌ خطأ في تحميل الملف:', error);
+          alert('حدث خطأ أثناء تحميل الملف');
+        }
+      };
+      
+      // Legacy file view function
+      window.viewLegacyFile = function(fileURL) {
+        if (!fileURL) return;
+        
+        try {
+          const link = document.createElement('a');
+          link.href = fileURL;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.click();
+        } catch (error) {
+          console.error('Cannot open legacy file:', error);
+          alert('لا يمكن فتح الملف القديم. قد يكون الملف غير متاح بعد الآن.');
+        }
+      };
+      
+      // Format notes for display
+      function formatNotes(notes) {
+        if (!notes || notes.trim() === '') {
+          return '<span class="notes-cell empty">لا توجد ملاحظات</span>';
+        }
+        
+        const truncated = notes.length > 30 ? notes.substring(0, 30) + '...' : notes;
+        
+        return `
+          <div class="notes-cell" title="${notes}" style="color: #ffffff; text-align: right; direction: rtl;">
+            ${truncated}
+            ${notes.length > 30 ? `<div class="notes-tooltip">${notes}</div>` : ''}
+          </div>
+        `;
+      }
+      
+      // Render filtered suppliers
+      function renderFilteredSuppliers() {
+        elements.suppliersContainer.innerHTML = '';
+        
+        const suppliers = Object.keys(filteredSuppliers);
+        
+        // إذا لم توجد موردين، اعرض رسالة ترحيبية
+        if (suppliers.length === 0) {
+          const searchTerm = elements.supplierSearch.value.trim();
+          elements.suppliersContainer.innerHTML = `
+            <div class="glass-card text-center py-16">
+              <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-r from-slate-500 to-slate-400 flex items-center justify-center">
+                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  ${invoices.length === 0 ? 
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>' :
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>'
+                  }
+                </svg>
+              </div>
+              <h3 class="text-2xl font-bold text-slate-200 mb-4">
+                ${invoices.length === 0 ? 'مرحباً بك في نظام إدارة الفواتير والمدفوعات!' : 
+                  searchTerm ? `لا توجد نتائج للبحث: "${searchTerm}"` : 'لا توجد موردين'}
+              </h3>
+              <p class="text-slate-400 mb-6 max-w-md mx-auto leading-relaxed">
+                ${invoices.length === 0 ? 
+                  'لم يتم إضافة أي فواتير بعد. ابدأ بإضافة فاتورة جديدة لتظهر الموردين والتقارير والمدفوعات هنا. النظام جاهز لاستقبال بياناتك!' : 
+                  searchTerm ? 'تأكد من كتابة اسم المورد بشكل صحيح أو جرب مصطلحات بحث أخرى.' :
+                  'لا توجد موردين حالياً. قد تكون البيانات فارغة أو تحتاج لإعادة تحميل.'
+                }
+              </p>
+              
+              ${invoices.length === 0 ? `
+                <div class="bg-slate-800/30 rounded-xl p-6 mb-6 max-w-sm mx-auto">
+                  <div class="text-slate-300 text-sm space-y-2">
+                    <div class="flex justify-between">
+                      <span>📊 الفواتير:</span>
+                      <span class="font-mono">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>🏢 الموردين:</span>
+                      <span class="font-mono">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>💰 إجمالي المبلغ:</span>
+                      <span class="font-mono">0 ر.س</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>💳 المدفوعات:</span>
+                      <span class="font-mono">0 ر.س</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                  <a href="add.html" class="modern-btn success inline-flex">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    إضافة فاتورة جديدة
+                  </a>
+                  <button onclick="loadSampleData()" class="modern-btn edit">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    تحميل بيانات تجريبية
+                  </button>
+                </div>
+              ` : searchTerm ? `
+                <button onclick="clearSearch()" class="modern-btn">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                  مسح البحث
+                </button>
+              ` : `
+                <button onclick="location.reload()" class="modern-btn">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  إعادة تحميل الصفحة
+                </button>
+              `}
+            </div>
+          `;
+          return;
+        }
+        
+        // Separate pinned and unpinned suppliers with outstanding amounts
+        const suppliersWithStats = suppliers.map(supplier => {
+          const stats = calculateSupplierStats(supplier);
+          return {
+            name: supplier,
+            invoices: filteredSuppliers[supplier],
+            ...stats
+          };
+        });
+        
+        const pinned = suppliersWithStats.filter(supplier => isSupplierPinned(supplier.name));
+        const unpinned = suppliersWithStats.filter(supplier => !isSupplierPinned(supplier.name));
+        
+        let index = 0;
+        
+        // Render pinned suppliers section
+        if (pinned.length > 0) {
+          const pinnedSection = document.createElement('div');
+          pinnedSection.className = 'pinned-section';
+          pinnedSection.innerHTML = `
+            <div class="section-header">
+              <h3>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                </svg>
+                الموردين المثبتين
+              </h3>
+            </div>
+          `;
+          
+          const pinnedGrid = document.createElement('div');
+          pinnedGrid.className = 'grid sm:grid-cols-2 lg:grid-cols-3 gap-8';
+          
+          pinned.forEach(supplier => {
+            const card = createSupplierCard(supplier, index++, true);
+            pinnedGrid.appendChild(card);
+          });
+          
+          pinnedSection.appendChild(pinnedGrid);
+          elements.suppliersContainer.appendChild(pinnedSection);
+        }
+        
+        // Render unpinned suppliers section
+        if (unpinned.length > 0) {
+          if (pinned.length > 0) {
+            const unpinnedSection = document.createElement('div');
+            unpinnedSection.className = 'my-8';
+            unpinnedSection.innerHTML = `
+              <div class="section-header">
+                <h3>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                  </svg>
+                  باقي الموردين
+                </h3>
+              </div>
+            `;
+            
+            const unpinnedGrid = document.createElement('div');
+            unpinnedGrid.className = 'grid sm:grid-cols-2 lg:grid-cols-3 gap-8';
+            
+            unpinned.forEach(supplier => {
+              const card = createSupplierCard(supplier, index++, false);
+              unpinnedGrid.appendChild(card);
+            });
+            
+            unpinnedSection.appendChild(unpinnedGrid);
+            elements.suppliersContainer.appendChild(unpinnedSection);
+          } else {
+            // If no pinned suppliers, just show a simple grid
+            const simpleGrid = document.createElement('div');
+            simpleGrid.className = 'grid sm:grid-cols-2 lg:grid-cols-3 gap-8';
+            
+            unpinned.forEach(supplier => {
+              const card = createSupplierCard(supplier, index++, false);
+              simpleGrid.appendChild(card);
+            });
+            
+            elements.suppliersContainer.appendChild(simpleGrid);
+          }
+        }
+      }
+      
+      // Create supplier card with payment stats
+      function createSupplierCard(supplierData, index, isPinned) {
+        const card = document.createElement('div'); 
+        card.className = `supplier-card slide-right ${isPinned ? 'pinned' : ''}`;
+        card.style.animationDelay = `${index * 0.1}s`;
+        
+        const invoiceCount = supplierData.invoices.length;
+        const outstandingClass = supplierData.outstanding > 0 ? 'text-yellow-300' : 'text-green-300';
+        const outstandingIcon = supplierData.outstanding > 0 ? '⚠️' : '✅';
+        
+        card.innerHTML = `
+          <button class="pin-btn ${isPinned ? 'active' : ''}" title="${isPinned ? 'إلغاء التثبيت' : 'تثبيت المورد'}" onclick="togglePinSupplier('${supplierData.name}', event)">
+            <svg class="w-4 h-4" fill="${isPinned ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+            </svg>
+          </button>
+          <div class="mb-6">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="w-12 h-12 supplier-icon rounded-2xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                  ${supplierData.name}
+                  ${isPinned ? '<svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>' : ''}
+                </h3>
+                <div class="w-16 h-1 bg-gradient-to-r from-slate-500 to-slate-400 rounded-full mt-1"></div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 text-slate-300">
+            <div class="stat-item">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">عدد الفواتير:</span>
+                <span class="font-bold text-slate-200 text-lg">${invoiceCount}</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">إجمالي الفواتير:</span>
+                <span class="font-bold text-blue-300 text-lg">${formatCurrency(supplierData.totalInvoices)}</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">المدفوعات:</span>
+                <span class="font-bold text-green-300 text-lg">${formatCurrency(supplierData.totalPayments)}</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">المستحق ${outstandingIcon}:</span>
+                <span class="font-bold ${outstandingClass} text-lg">${formatCurrency(supplierData.outstanding)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-8 pt-6 border-t border-slate-600/30">
+            <div class="flex items-center justify-center text-slate-400 font-semibold">
+              <span class="text-sm">عرض التفاصيل</span>
+              <svg class="w-5 h-5 mr-2 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
+          </div>
+        `;
+        
+        card.addEventListener('click', (e) => {
+          if (!e.target.closest('.pin-btn')) {
+            showInvoices(supplierData.name);
+          }
+        });
+        
+        return card;
+      }
+      
+      // Render filtered invoices
+      function renderFilteredInvoices() {
+        elements.invoicesTableBody.innerHTML = '';
+        let sum = 0;
+        
+        filteredInvoices.forEach((inv, index) => {
+          sum += inv.totalAmount;
+          const row = document.createElement('tr');
+          row.style.animationDelay = `${index * 0.05}s`;
+          row.className = 'fade-up';
+          
+          // Create unique invoice ID if not exists
+          const invoiceId = inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`;
+          row.dataset.invoiceId = invoiceId;
+          
+          row.innerHTML = `
+            <td class="font-semibold text-white">${inv.invoiceNumber}</td>
+            <td class="text-white">${inv.date}</td>
+            <td class="text-white">${inv.type}</td>
+            <td class="text-white">${inv.category}</td>
+            <td class="text-white">${formatCurrency(inv.amountBeforeTax)}</td>
+            <td class="text-white">${formatCurrency(inv.taxAmount)}</td>
+            <td class="text-white font-bold">${formatCurrency(inv.totalAmount)}</td>
+            <td>${formatNotes(inv.notes)}</td>
+            <td>${createFileLink(inv)}</td>
+            <td>
+              <div class="flex gap-1 justify-center">
+                <button class="action-btn edit" onclick="editInvoice('${invoiceId}')" title="تعديل">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
+                <button class="action-btn delete" onclick="deleteInvoice('${invoiceId}')" title="حذف">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          `;
+          
+          elements.invoicesTableBody.appendChild(row);
+        });
+        
+        elements.totalAllEl.textContent = formatCurrency(sum);
+      }
+      
+      // Render suppliers
+      function renderSuppliers() {
+        console.log('🔄 جاري تحميل الموردين...', { invoicesCount: invoices.length });
+        
+        const bySupplier = invoices.reduce((acc, inv) => { 
+          acc[inv.supplier] = acc[inv.supplier] || []; 
+          acc[inv.supplier].push(inv); 
+          return acc; 
+        }, {});
+        
+        console.log('📊 الموردين المعالجة:', Object.keys(bySupplier));
+        
+        filteredSuppliers = bySupplier;
+        renderFilteredSuppliers();
+      }
+      
+      // Show invoices for specific supplier
+      function showInvoices(supplier) {
+        currentSupplier = supplier;
+        elements.supplierList.classList.add('hidden'); 
+        elements.invoicesSection.classList.remove('hidden');
+        elements.supplierTitle.textContent = `فواتير ومدفوعات: ${supplier}`; 
+        
+        // Reset search and sort state
+        elements.invoiceSearch.value = '';
+        currentSort = { column: null, direction: 'asc' };
+        
+        // Remove sort classes from headers
+        document.querySelectorAll('.sortable-header').forEach(h => {
+          h.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        const supplierInvoices = invoices.filter(inv => inv.supplier === supplier);
+        filteredInvoices = supplierInvoices;
+        renderFilteredInvoices();
+        renderPaymentsTable();
+        updatePaymentStats();
+      }
+      
+      // Edit invoice function
+      window.editInvoice = function(invoiceId) {
+        const invoice = invoices.find(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
+        );
+        if (!invoice) return;
+        
+        currentEditingInvoice = invoice;
+        
+        // Populate form
+        elements.editInvoiceNumber.value = invoice.invoiceNumber;
+        elements.editInvoiceDate.value = invoice.date;
+        elements.editInvoiceType.value = invoice.type;
+        elements.editInvoiceCategory.value = invoice.category;
+        elements.editAmountBeforeTax.value = invoice.amountBeforeTax;
+        elements.editTaxAmount.value = invoice.taxAmount;
+        elements.editSupplier.value = invoice.supplier;
+        elements.editNotes.value = invoice.notes || '';
+        
+        elements.editInvoiceModal.classList.add('show');
+      };
+      
+      // Toggle pin supplier function (global)
+      window.togglePinSupplier = function(supplierName, event) {
+        event.stopPropagation(); // Prevent card click
+        
+        const index = pinnedSuppliers.indexOf(supplierName);
+        if (index > -1) {
+          // Unpin supplier
+          pinnedSuppliers.splice(index, 1);
+        } else {
+          // Pin supplier
+          pinnedSuppliers.push(supplierName);
+        }
+        
+        localStorage.setItem('pinnedSuppliers', JSON.stringify(pinnedSuppliers));
+        
+        // Re-render suppliers with current search
+        const searchTerm = elements.supplierSearch.value;
+        filterSuppliers(searchTerm);
+      };
+      
+      // Delete invoice function
+      window.deleteInvoice = function(invoiceId) {
+        const invoice = invoices.find(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
+        );
+        if (!invoice) return;
+        
+        currentDeletingInvoice = invoice;
+        
+        // Show invoice details
+        elements.invoiceDetails.innerHTML = `
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-slate-400">رقم الفاتورة:</span>
+              <span class="text-slate-200 font-semibold">${invoice.invoiceNumber}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">التاريخ:</span>
+              <span class="text-slate-200">${invoice.date}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">المورد:</span>
+              <span class="text-slate-200">${invoice.supplier}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">المبلغ الإجمالي:</span>
+              <span class="text-slate-200 font-bold">${formatCurrency(invoice.totalAmount)}</span>
+            </div>
+          </div>
+        `;
+        
+        elements.deleteModal.classList.add('show');
+      };
+      
+      // Edit supplier name
+      function editSupplier() {
+        elements.newSupplierName.value = currentSupplier;
+        elements.editModal.classList.add('show');
+        setTimeout(() => {
+          elements.newSupplierName.focus();
+          elements.newSupplierName.select();
+        }, 100);
+      }
+      
+      // Save supplier name
+      function saveSupplier() {
+        const newName = elements.newSupplierName.value.trim();
+        if (!newName || newName === currentSupplier) {
+          elements.editModal.classList.remove('show');
+          return;
+        }
+        
+        // Update invoices with new supplier name
+        invoices = invoices.map(inv => 
+          inv.supplier === currentSupplier ? {...inv, supplier: newName} : inv
+        );
+        
+        // Update payments with new supplier name
+        payments = payments.map(pay => 
+          pay.supplier === currentSupplier ? {...pay, supplier: newName} : pay
+        );
+        
+        localStorage.setItem('invoices', JSON.stringify(invoices));
+        localStorage.setItem('payments', JSON.stringify(payments));
+        currentSupplier = newName;
+        elements.supplierTitle.textContent = `فواتير ومدفوعات: ${newName}`;
+        elements.editModal.classList.remove('show');
+        
+        // Update filtered invoices with new supplier name
+        filteredInvoices = filteredInvoices.map(inv => ({...inv, supplier: newName}));
+        
+        // Refresh payment stats and table
+        updatePaymentStats();
+        renderPaymentsTable();
+        
+        // Show success feedback
+        const originalText = elements.saveSupplierBtn.innerHTML;
+        elements.saveSupplierBtn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          تم الحفظ
+        `;
+        setTimeout(() => {
+          elements.saveSupplierBtn.innerHTML = originalText;
+        }, 2000);
+      }
+      
+      // Update invoice
+      function updateInvoice() {
+        if (!currentEditingInvoice) return;
+        
+        const updatedInvoice = {
+          ...currentEditingInvoice,
+          invoiceNumber: elements.editInvoiceNumber.value,
+          date: elements.editInvoiceDate.value,
+          type: elements.editInvoiceType.value,
+          category: elements.editInvoiceCategory.value,
+          amountBeforeTax: parseFloat(elements.editAmountBeforeTax.value),
+          taxAmount: parseFloat(elements.editTaxAmount.value),
+          supplier: elements.editSupplier.value,
+          notes: elements.editNotes.value.trim(),
+          totalAmount: parseFloat(elements.editAmountBeforeTax.value) + parseFloat(elements.editTaxAmount.value),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Update invoice in array
+        const index = invoices.findIndex(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === 
+          (currentEditingInvoice.id || `${currentEditingInvoice.invoiceNumber}-${currentEditingInvoice.date}-${currentEditingInvoice.supplier}`)
+        );
+        
+        if (index !== -1) {
+          invoices[index] = updatedInvoice;
+          localStorage.setItem('invoices', JSON.stringify(invoices));
+          
+          // Refresh the view if supplier changed
+          if (updatedInvoice.supplier !== currentSupplier) {
+            elements.invoicesSection.classList.add('hidden');
+            elements.supplierList.classList.remove('hidden');
+            elements.supplierSearch.value = ''; // Reset search
+            renderSuppliers();
+          } else {
+            // Refresh current supplier view with current search and sort
+            const searchTerm = elements.invoiceSearch.value;
+            const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
+            if (!searchTerm.trim()) {
+              filteredInvoices = supplierInvoices;
+            } else {
+              filteredInvoices = supplierInvoices.filter(inv => 
+                inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+            }
+            
+            // Apply current sort if any
+            if (currentSort.column) {
+              sortInvoices(currentSort.column, currentSort.direction);
+            } else {
+              renderFilteredInvoices();
+            }
+            
+            // Update payment stats
+            updatePaymentStats();
+          }
+          
+          elements.editInvoiceModal.classList.remove('show');
+          
+          // Show success feedback
+          const originalText = elements.updateInvoiceBtn.innerHTML;
+          elements.updateInvoiceBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            تم التحديث
+          `;
+          setTimeout(() => {
+            elements.updateInvoiceBtn.innerHTML = originalText;
+          }, 2000);
+        }
+      }
+      
+      // Confirm delete invoice
+      function confirmDelete() {
+        if (!currentDeletingInvoice) return;
+        
+        // Remove invoice from array
+        invoices = invoices.filter(inv => 
+          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) !== 
+          (currentDeletingInvoice.id || `${currentDeletingInvoice.invoiceNumber}-${currentDeletingInvoice.date}-${currentDeletingInvoice.supplier}`)
+        );
+        
+        localStorage.setItem('invoices', JSON.stringify(invoices));
+        
+        // Check if supplier still has invoices
+        const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
+        if (supplierInvoices.length === 0) {
+          // Go back to suppliers list if no invoices left
+          elements.invoicesSection.classList.add('hidden');
+          elements.supplierList.classList.remove('hidden');
+          elements.supplierSearch.value = ''; // Reset search
+          renderSuppliers();
+        } else {
+          // Refresh current supplier view with current search and sort
+          const searchTerm = elements.invoiceSearch.value;
+          if (!searchTerm.trim()) {
+            filteredInvoices = supplierInvoices;
+          } else {
+            filteredInvoices = supplierInvoices.filter(inv => 
+              inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          }
+          
+          // Apply current sort if any
+          if (currentSort.column) {
+            sortInvoices(currentSort.column, currentSort.direction);
+          } else {
+            renderFilteredInvoices();
+          }
+          
+          // Update payment stats
+          updatePaymentStats();
+        }
+        
+        elements.deleteModal.classList.remove('show');
+        currentDeletingInvoice = null;
+      }
+      
+      // Export to CSV
+      function exportToCSV() {
+        let csvContent = '\uFEFF';
+        csvContent += 'رقم الفاتورة,التاريخ,نوع الفاتورة,الفئة,المبلغ قبل الضريبة,الضريبة,الإجمالي,الملاحظات\n';
+        
+        filteredInvoices.forEach(inv => {
+          const notes = (inv.notes || '').replace(/"/g, '""'); // Escape quotes
+          csvContent += `"${inv.invoiceNumber}","${inv.date}","${inv.type}","${inv.category}",${inv.amountBeforeTax},${inv.taxAmount},${inv.totalAmount},"${notes}"\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `فواتير_${currentSupplier}_${new Date().toLocaleDateString('ar-SA')}.csv`;
+        link.click();
+      }
+      
+      // Event listeners
+      elements.editSupplierBtn.addEventListener('click', editSupplier);
+      elements.saveSupplierBtn.addEventListener('click', saveSupplier);
+      elements.cancelEditBtn.addEventListener('click', () => elements.editModal.classList.remove('show'));
+      elements.updateInvoiceBtn.addEventListener('click', updateInvoice);
+      elements.cancelEditInvoiceBtn.addEventListener('click', () => elements.editInvoiceModal.classList.remove('show'));
+      elements.confirmDeleteBtn.addEventListener('click', confirmDelete);
+      elements.cancelDeleteBtn.addEventListener('click', () => elements.deleteModal.classList.remove('show'));
+      elements.exportBtn.addEventListener('click', exportToCSV);
+      elements.backBtn.addEventListener('click', () => { 
+        elements.invoicesSection.classList.add('hidden'); 
+        elements.supplierList.classList.remove('hidden');
+        elements.supplierSearch.value = ''; // Reset search
+        renderSuppliers();
+      });
+
+      // Payment event listeners
+      elements.addPaymentBtn.addEventListener('click', addPayment);
+      elements.savePaymentBtn.addEventListener('click', savePayment);
+      elements.cancelPaymentBtn.addEventListener('click', () => elements.addPaymentModal.classList.remove('show'));
+      elements.updatePaymentBtn.addEventListener('click', updatePayment);
+      elements.cancelEditPaymentBtn.addEventListener('click', () => elements.editPaymentModal.classList.remove('show'));
+      elements.confirmDeletePaymentBtn.addEventListener('click', confirmDeletePayment);
+      elements.cancelDeletePaymentBtn.addEventListener('click', () => elements.deletePaymentModal.classList.remove('show'));
+      
+      // زر تحديث البيانات
+      document.getElementById('refresh-data-btn').addEventListener('click', () => {
+        console.log('🔄 إعادة تحميل البيانات...');
+        
+        // إعادة تحميل البيانات من localStorage
+        invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+        payments = JSON.parse(localStorage.getItem('payments') || '[]');
+        pinnedSuppliers = JSON.parse(localStorage.getItem('pinnedSuppliers') || '[]');
+        
+        // إعادة تعيين البحث
+        elements.supplierSearch.value = '';
+        
+        // إعادة رندر الموردين
+        renderSuppliers();
+        
+        // إشعار المستخدم
+        const btn = document.getElementById('refresh-data-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          تم التحديث
+        `;
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 2000);
+      });
+      
+      // Search event listeners
+      elements.supplierSearch.addEventListener('input', (e) => {
+        filterSuppliers(e.target.value);
+      });
+      
+      elements.invoiceSearch.addEventListener('input', (e) => {
+        filterInvoices(e.target.value);
+      });
+      
+      // Close modals on outside click
+      [elements.editModal, elements.editInvoiceModal, elements.deleteModal, 
+       elements.addPaymentModal, elements.editPaymentModal, elements.deletePaymentModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.classList.remove('show');
+          }
+        });
+      });
+      
+      // Handle enter key in modals
+      elements.newSupplierName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') saveSupplier();
+      });
+      
+      elements.paymentAmount.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') savePayment();
+      });
+      
+      // Auto-calculate total amount in edit form
+      [elements.editAmountBeforeTax, elements.editTaxAmount].forEach(input => {
+        input.addEventListener('input', () => {
+          const beforeTax = parseFloat(elements.editAmountBeforeTax.value) || 0;
+          const tax = parseFloat(elements.editTaxAmount.value) || 0;
+          // Could add a total display field here if needed
+        });
+      });
+      
+      // Initialize sort handlers and render suppliers
+      initializeSortHandlers();
+      renderSuppliers();
+      
+      // تحديث إحصائيات النظام
+      console.log(`
+      📊 نظام إدارة الفواتير والمدفوعات المحسّن والمطوّر - إصدار محدث
+      
+      ✅ تم تحميل النظام بنجاح مع إصلاح عرض الملفات!
+      
+      📈 إحصائيات البيانات:
+      • الفواتير: ${invoices.length} فاتورة
+      • المدفوعات: ${payments.length} دفعة
+      • الموردين: ${Object.keys(invoices.reduce((acc, inv) => { acc[inv.supplier] = true; return acc; }, {})).length} مورد
+      • الموردين المثبتين: ${pinnedSuppliers.length}
+      • حجم البيانات: ${(JSON.stringify(invoices).length / 1024).toFixed(2)} KB
+      • حجم المدفوعات: ${(JSON.stringify(payments).length / 1024).toFixed(2)} KB
+      
+      🎯 مميزات النظام المحدثة:
+      • ✅ إصلاح عرض الملفات المرفقة مع الفواتير
+      • ✅ عارض ملفات متطور يدعم PDF والصور
+      • ✅ تحميل الملفات المرفقة بسهولة
+      • ✅ إدارة مدفوعات على مستوى المورد
+      • ✅ حساب المبالغ المستحقة تلقائياً
+      • ✅ إحصائيات مالية شاملة لكل مورد
+      • ✅ تتبع مفصل للمدفوعات
+      • ✅ محاذاة مثالية للنصوص العربية
+      • ✅ تصميم متجاوب محسّن
+      
+      🔧 إصلاحات عرض الملفات:
+      • محاذاة أفضل لبيانات الملفات
+      • عارض ملفات محسّن يدعم PDF والصور
+      • تحميل آمن للملفات المرفقة
+      • معالجة أخطاء عرض الملفات
+      • دعم الملفات القديمة والجديدة
+      
+      🔧 حالة النظام:
+      ${invoices.length > 0 ? '✅ يحتوي على فواتير' : '⚠️  لا يحتوي على فواتير - تم إضافة بيانات تجريبية'}
+      ${payments.length > 0 ? '✅ يحتوي على مدفوعات' : '⚠️  لا يحتوي على مدفوعات - تم إضافة بيانات تجريبية'}
+      ${Object.keys(filteredSuppliers).length > 0 ? '✅ الموردين جاهزين للعرض' : '❌ لا توجد موردين للعرض'}
+      ✅ عارض الملفات جاهز وفعال
+      `);
+      
+      // دوال مساعدة عامة
+      window.loadSampleData = function() {
+        console.log('📦 تحميل بيانات تجريبية...');
+        location.reload();
+      };
+      
+      window.clearSearch = function() {
+        elements.supplierSearch.value = '';
+        filterSuppliers('');
+      };
+      
+    } catch (error) {
+      console.error('❌ خطأ في تحميل النظام:', error);
+      
+      // عرض رسالة خطأ للمستخدم
+      document.body.innerHTML = `
+        <div style="
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          min-height: 100vh; 
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 100%);
+          color: white;
+          font-family: 'Tajawal', sans-serif;
+          text-align: center;
+          padding: 20px;
+        ">
+          <div style="
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            backdrop-filter: blur(20px);
+          ">
+            <div style="
+              width: 80px;
+              height: 80px;
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 24px;
+            ">
+              <svg width="40" height="40" fill="white" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h2 style="color: #f1f5f9; margin-bottom: 16px; font-size: 24px;">خطأ في تحميل النظام</h2>
+            <p style="color: #cbd5e1; margin-bottom: 24px; line-height: 1.6;">
+              حدث خطأ غير متوقع أثناء تحميل نظام إدارة الفواتير والمدفوعات. يرجى إعادة تحميل الصفحة أو مسح بيانات المتصفح.
+            </p>
+            <div style="margin-bottom: 20px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; font-family: monospace; font-size: 12px; color: #fca5a5; text-align: left;">
+              ${error.message}
+            </div>
+            <button onclick="location.reload()" style="
+              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 12px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              margin: 8px;
+            ">
+              إعادة تحميل الصفحة
+            </button>
+            <button onclick="localStorage.clear(); location.reload();" style="
+              background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 12px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              margin: 8px;
+            ">
+              مسح البيانات وإعادة التشغيل
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    });
+  </script>
+</body>
+</html>
