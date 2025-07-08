@@ -2,9 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import OpenAI from 'openai';
+
+// إنشاء __dirname للـ ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -57,6 +63,11 @@ const modelName = process.env.OPENAI_MODEL || 'gpt-4';
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 console.log(`🚀 بدء الخادم باستخدام موديل: ${modelName}`);
+
+// الصفحة الرئيسية - home.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+});
 
 // نقطة فحص الخادم
 app.get('/ping', (req, res) => {
@@ -324,13 +335,4 @@ app.listen(port, () => {
 process.on('SIGINT', () => {
   console.log('\n🔄 إيقاف الخادم...');
   process.exit(0);
-});
-
-
-// Default route
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "home.html"));
-}); to handle root requests
-app.get('/', (req, res) => {
-  res.send('Welcome to ERP System!');
 });
