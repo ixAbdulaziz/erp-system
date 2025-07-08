@@ -15,30 +15,62 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
-// إعداد multer لرفع الملفات
-const upload = multer({ 
-  dest: 'uploads/',
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/jpg', 
-      'image/png',
-      'image/gif'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('نوع الملف غير مدعوم'), false);
-    }
-  }
-});
+console.log(`🚀 Starting server on port: ${port}`);
 
-// إعداد CORS بطريقة بسيطة
+// إعدادات الحماية
+const AUTH_USERNAME = process.env.AUTH_USERNAME || 'admin';
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'password123';
+
+console.log(`🔐 Authentication enabled for user: ${AUTH_USERNAME}`);
+
+// Basic Authentication Middleware
+const authenticateUser = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    res.set('WWW-Authenticate', 'Basic realm="ERP System"');
+    return res.status(401).send(`
+      <html>
+        <head>
+          <title>تسجيل الدخول مطلوب</title>
+          <meta charset="utf-8">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>🔒 نظام ERP محمي</h1>
+          <p>يرجى إدخال اسم المستخدم وكلمة المرور</p>
+          <p style="color: #666;">سيتم طلب تسجيل الدخول تلقائياً</p>
+        </body>
+      </html>
+    `);
+  }
+
+  const base64Credentials = authHeader.split(' ')[1];
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+  const [username, password] = credentials.split(':');
+
+  if (username === AUTH_USERNAME && password === AUTH_PASSWORD) {
+    console.log(`✅ User authenticated: ${username}`);
+    next();
+  } else {
+    console.log(`❌ Failed authentication attempt: ${username}`);
+    res.set('WWW-Authenticate', 'Basic realm="ERP System"');
+    return res.status(401).send(`
+      <html>
+        <head>
+          <title>خطأ في تسجيل الدخول</title>
+          <meta charset="utf-8">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ خطأ في تسجيل الدخول</h1>
+          <p>اسم المستخدم أو كلمة المرور غير صحيحة</p>
+          <button onclick="location.reload()">إعادة المحاولة</button>
+        </body>
+      </html>
+    `);
+  }
+};
+
+// إعداد CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -53,98 +85,167 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// تحقق من وجود API key
-if (!process.env.OPENAI_API_KEY) {
-  console.error('⚠️ خطأ: OPENAI_API_KEY مفقود في متغيرات البيئة');
-  console.log('قم بإنشاء ملف .env وأضف: OPENAI_API_KEY=your_api_key_here');
-}
+// تطبيق الحماية على جميع المسارات (ما عدا health check)
+app.use((req, res, next) => {
+  // السماح بـ health check بدون حماية للـ Railway
+  if (req.path === '/health') {
+    return next();
+  }
+  
+  // تطبيق الحماية على باقي المسارات
+  authenticateUser(req, res, next);
+});
 
+// إعداد multer
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('نوع الملف غير مدعوم'), false);
+    }
+  }
+});
+
+// تحقق من API key
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 const modelName = process.env.OPENAI_MODEL || 'gpt-4';
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-console.log(`🚀 بدء الخادم باستخدام موديل: ${modelName}`);
-
-// الصفحة الرئيسية - home.html
+// الصفحة الرئيسية
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+  try {
+    const homePath = path.join(__dirname, 'public', 'home.html');
+    if (fs.existsSync(homePath)) {
+      res.sendFile(homePath);
+    } else {
+      res.send(`
+        <html>
+        <head>
+          <title>ERP System</title>
+          <meta charset="utf-8">
+        </head>
+        <body style="font-family: Arial; padding: 20px;">
+          <h1>🎉 مرحباً بك في نظام ERP المحمي</h1>
+          <p>✅ تم تسجيل الدخول بنجاح!</p>
+          <p>الملف home.html غير موجود في مجلد public</p>
+          <hr>
+          <p><a href="/ping">اختبار الخادم</a></p>
+          <p><a href="/logout">تسجيل الخروج</a></p>
+        </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('Error serving home page:', error);
+    res.status(500).send('خطأ في تحميل الصفحة الرئيسية');
+  }
+});
+
+// تسجيل الخروج
+app.get('/logout', (req, res) => {
+  res.set('WWW-Authenticate', 'Basic realm="ERP System"');
+  res.status(401).send(`
+    <html>
+      <head>
+        <title>تسجيل الخروج</title>
+        <meta charset="utf-8">
+      </head>
+      <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h1>👋 تم تسجيل الخروج</h1>
+        <p>شكراً لاستخدام نظام ERP</p>
+        <a href="/">العودة للصفحة الرئيسية</a>
+      </body>
+    </html>
+  `);
 });
 
 // نقطة فحص الخادم
 app.get('/ping', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Server is running',
-    model: modelName,
-    timestamp: new Date().toISOString()
+    message: 'Server is running and protected!',
+    timestamp: new Date().toISOString(),
+    port: port,
+    authenticated: true,
+    hasOpenAI: !!process.env.OPENAI_API_KEY,
+    model: modelName
   });
 });
 
-// دالة استخراج النص
+// Health check للـ Railway (بدون حماية)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
+// استخراج النص من الملفات
 async function extractText(filePath, mimetype) {
-  console.log(`📄 استخراج النص من: ${mimetype}`);
+  console.log(`📄 Extracting text from: ${mimetype}`);
   
   if (mimetype === 'application/pdf') {
     const buffer = fs.readFileSync(filePath);
     const pdfData = await pdfParse(buffer);
-    console.log(`✅ تم استخراج ${pdfData.text.length} حرف من PDF`);
     return pdfData.text;
   } else if (mimetype.startsWith('image/')) {
-    console.log('🔍 بدء OCR للصورة...');
     const { data: { text } } = await Tesseract.recognize(filePath, 'ara+eng');
-    console.log(`✅ تم استخراج ${text.length} حرف من الصورة`);
     return text;
   } else {
-    throw new Error(`نوع ملف غير مدعوم: ${mimetype}`);
+    throw new Error(`Unsupported file type: ${mimetype}`);
   }
 }
 
 // API endpoint لتحليل الفواتير
 app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
-  console.log('\n🔄 بدء تحليل فاتورة جديدة...');
+  if (!openai) {
+    return res.status(500).json({ 
+      success: false, 
+      error: 'OpenAI API key not configured' 
+    });
+  }
+
+  console.log('🔄 Starting invoice analysis...');
   
   try {
     if (!req.file) {
       return res.status(400).json({ 
         success: false, 
-        error: 'لم يتم رفع ملف' 
+        error: 'No file uploaded' 
       });
     }
 
     const { path: filePath, mimetype, originalname } = req.file;
-    console.log(`📁 ملف: ${originalname} - ${mimetype}`);
+    console.log(`📁 File: ${originalname} - ${mimetype}`);
 
-    // استخراج النص
     let rawText;
     try {
       rawText = await extractText(filePath, mimetype);
     } catch (extractError) {
-      console.error('❌ خطأ في استخراج النص:', extractError.message);
+      console.error('❌ Text extraction error:', extractError.message);
       return res.status(422).json({ 
         success: false, 
-        error: `فشل في قراءة الملف: ${extractError.message}` 
+        error: `Failed to read file: ${extractError.message}` 
       });
     } finally {
       // حذف الملف المؤقت
       try {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
-          console.log('🗑️ تم حذف الملف المؤقت');
         }
       } catch (deleteError) {
-        console.warn('⚠️ فشل في حذف الملف المؤقت');
+        console.warn('⚠️ Failed to delete temp file');
       }
     }
 
-    // التحقق من النص
     if (!rawText || rawText.trim().length < 10) {
       return res.status(422).json({ 
         success: false, 
-        error: 'لم أستطع استخراج نص كافٍ من الفاتورة' 
+        error: 'Could not extract sufficient text from invoice' 
       });
     }
 
-    console.log(`📝 نص بطول ${rawText.length} حرف`);
-    console.log('🤖 إرسال للذكاء الاصطناعي...');
+    console.log(`📝 Text length: ${rawText.length} characters`);
 
     // تحليل بالذكاء الاصطناعي
     const response = await openai.chat.completions.create({
@@ -152,94 +253,32 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: `
-أنت خبير في تحليل الفواتير. مهمتك استخراج البيانات التالية من النص:
-
-1. supplier: اسم المورد أو الشركة التي أصدرت الفاتورة
-2. type: نوع الفاتورة أو وصف الخدمة/المنتج الأساسي (مثل: فاتورة كهرباء، فاتورة اتصالات، فاتورة خدمات سفر وسياحة، فاتورة مطعم، فاتورة مكتب، إلخ)
-3. invoiceNumber: رقم الفاتورة
-4. date: تاريخ الفاتورة بصيغة YYYY-MM-DD
-5. amountBeforeTax: المبلغ قبل الضريبة (رقم)
-6. taxAmount: مبلغ الضريبة (رقم)
-7. totalAmount: إجمالي المبلغ (رقم)
-
-تعليمات مهمة:
-- حلل الفاتورة جيداً لتحديد نوع الخدمة أو المنتج الأساسي
-- لا تضع أي شيء في category - اتركه فارغاً
-- إذا لم تجد بيانات الضريبة، احسبها بناءً على الضريبة المعتادة 15%
-- كن دقيقاً في استخراج الأرقام والتواريخ
-- استخدم الأسماء الواضحة والمفهومة لنوع الفاتورة
-
-أرجع النتيجة في JSON format فقط.
-          `
+          content: `Extract invoice data and return as JSON with these fields: supplier, type, invoiceNumber, date (YYYY-MM-DD), amountBeforeTax, taxAmount, totalAmount`
         },
         { 
           role: 'user', 
-          content: `حلل هذه الفاتورة بعناية واستخرج البيانات المطلوبة:\n\n${rawText}` 
+          content: `Analyze this invoice:\n\n${rawText}` 
         }
       ],
-      functions: [
-        {
-          name: 'extract_invoice_data',
-          description: 'استخراج بيانات الفاتورة بدقة',
-          parameters: {
-            type: 'object',
-            properties: {
-              supplier: { 
-                type: 'string', 
-                description: 'اسم المورد أو الشركة' 
-              },
-              type: { 
-                type: 'string', 
-                description: 'نوع الفاتورة أو وصف الخدمة الأساسية (مثل: فاتورة كهرباء، خدمات سفر وسياحة، مطعم، إلخ)' 
-              },
-              invoiceNumber: { 
-                type: 'string', 
-                description: 'رقم الفاتورة' 
-              },
-              date: { 
-                type: 'string', 
-                description: 'تاريخ الفاتورة بصيغة YYYY-MM-DD' 
-              },
-              amountBeforeTax: { 
-                type: 'number', 
-                description: 'المبلغ قبل الضريبة' 
-              },
-              taxAmount: { 
-                type: 'number', 
-                description: 'مبلغ الضريبة' 
-              },
-              totalAmount: { 
-                type: 'number', 
-                description: 'إجمالي المبلغ' 
-              }
-            },
-            required: ['supplier', 'type', 'invoiceNumber', 'date', 'totalAmount']
-          }
-        }
-      ],
-      function_call: { name: 'extract_invoice_data' },
       temperature: 0.1
     });
 
-    const msg = response.choices[0].message;
-    if (!msg.function_call?.arguments) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'فشل في تحليل الفاتورة' 
-      });
-    }
-
-    // تحليل النتيجة
+    const content = response.choices[0].message.content;
     let data;
+    
     try {
-      data = JSON.parse(msg.function_call.arguments);
-      console.log('✅ تم استخراج البيانات:', data);
+      // استخراج JSON من الرد
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        data = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
     } catch (parseError) {
-      console.error('❌ خطأ في تحليل JSON:', parseError.message);
+      console.error('❌ JSON parsing error:', parseError.message);
       return res.status(500).json({ 
         success: false, 
-        error: 'خطأ في معالجة البيانات' 
+        error: 'Error processing data' 
       });
     }
 
@@ -254,85 +293,58 @@ app.post('/api/analyze-invoice', upload.single('invoice'), async (req, res) => {
       totalAmount: parseFloat(data.totalAmount) || 0
     };
 
-    // حساب الضريبة إذا لم تكن موجودة أو غير صحيحة
-    if (cleanData.totalAmount > 0) {
-      if (cleanData.amountBeforeTax === 0 || cleanData.taxAmount === 0) {
-        // حساب بناءً على ضريبة 15%
-        cleanData.amountBeforeTax = Math.round((cleanData.totalAmount / 1.15) * 100) / 100;
-        cleanData.taxAmount = Math.round((cleanData.totalAmount - cleanData.amountBeforeTax) * 100) / 100;
-      }
-    }
-
-    console.log('✅ تم تحليل الفاتورة بنجاح');
-    console.log('📊 البيانات النهائية:', cleanData);
-
-    res.json({ 
-      success: true, 
-      data: cleanData
-    });
+    console.log('✅ Invoice analyzed successfully');
+    res.json({ success: true, data: cleanData });
 
   } catch (error) {
-    console.error('❌ خطأ في تحليل الفاتورة:', error.message);
+    console.error('❌ Invoice analysis error:', error.message);
     
     // حذف الملف في حالة الخطأ
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
       } catch (deleteError) {
-        console.warn('⚠️ فشل في حذف الملف بعد الخطأ');
+        console.warn('⚠️ Failed to delete file after error');
       }
-    }
-
-    let errorMessage = 'حدث خطأ غير متوقع';
-    
-    if (error.message.includes('rate limit')) {
-      errorMessage = 'تم تجاوز الحد المسموح للطلبات';
-    } else if (error.message.includes('insufficient_quota')) {
-      errorMessage = 'رصيد API منتهي';
-    } else if (error.message.includes('invalid_api_key')) {
-      errorMessage = 'مفتاح API غير صالح';
     }
 
     res.status(500).json({ 
       success: false, 
-      error: errorMessage
+      error: 'Unexpected error occurred'
     });
   }
 });
 
-// معالج أخطاء multer
+// معالج الأخطاء
 app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
-        success: false,
-        error: 'حجم الملف كبير جداً (الحد الأقصى 10MB)'
-      });
-    }
-  }
-  
+  console.error('Unhandled error:', error);
   res.status(500).json({
     success: false,
-    error: error.message || 'خطأ في الخادم'
+    error: error.message || 'Server error'
   });
 });
 
+// إنشاء مجلد uploads
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+  console.log('📁 Created uploads directory');
+}
+
 // تشغيل الخادم
-app.listen(port, () => {
-  console.log('\n🎉 تم تشغيل خادم تحليل الفواتير المحسن!');
-  console.log(`🌐 الرابط: http://localhost:${port}`);
-  console.log(`🤖 الموديل: ${modelName}`);
-  console.log(`⚡ جاهز لاستقبال الطلبات...\n`);
-  
-  // إنشاء مجلد uploads إذا لم يكن موجوداً
-  if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
-    console.log('📁 تم إنشاء مجلد uploads');
-  }
+app.listen(port, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${port}`);
+  console.log(`🔐 Protected with authentication`);
+  console.log(`👤 Username: ${AUTH_USERNAME}`);
+  console.log(`🗝️ Password: ${AUTH_PASSWORD}`);
 });
 
 // إيقاف الخادم بأمان
+process.on('SIGTERM', () => {
+  console.log('🔄 SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
 process.on('SIGINT', () => {
-  console.log('\n🔄 إيقاف الخادم...');
+  console.log('🔄 SIGINT received, shutting down gracefully');
   process.exit(0);
 });
