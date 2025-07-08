@@ -17,17 +17,23 @@ const port = process.env.PORT || 3000;
 
 console.log(`🚀 Starting server on port: ${port}`);
 
-// إعدادات الحماية
-const AUTH_USERNAME = process.env.AUTH_USERNAME || 'admin';
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'password123';
+// إعدادات الحماية مع debugging
+const AUTH_USERNAME = process.env.AUTH_USERNAME?.trim() || 'admin';
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD?.trim() || 'password123';
 
-console.log(`🔐 Authentication enabled for user: ${AUTH_USERNAME}`);
+// طباعة المتغيرات للـ debugging (احذفها بعد الحل)
+console.log('🔍 Environment Variables Debug:');
+console.log(`AUTH_USERNAME: "${AUTH_USERNAME}" (length: ${AUTH_USERNAME.length})`);
+console.log(`AUTH_PASSWORD: "${AUTH_PASSWORD}" (length: ${AUTH_PASSWORD.length})`);
+console.log(`OPENAI_API_KEY exists: ${!!process.env.OPENAI_API_KEY}`);
 
-// Basic Authentication Middleware
+// Basic Authentication Middleware مع debugging مطور
 const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
+  console.log(`🔐 Auth attempt for path: ${req.path}`);
   
   if (!authHeader) {
+    console.log('❌ No authorization header found');
     res.set('WWW-Authenticate', 'Basic realm="ERP System"');
     return res.status(401).send(`
       <html>
@@ -38,7 +44,11 @@ const authenticateUser = (req, res, next) => {
         <body style="font-family: Arial; text-align: center; padding: 50px;">
           <h1>🔒 نظام ERP محمي</h1>
           <p>يرجى إدخال اسم المستخدم وكلمة المرور</p>
-          <p style="color: #666;">سيتم طلب تسجيل الدخول تلقائياً</p>
+          <div style="background: #f0f8ff; padding: 15px; margin: 20px; border-radius: 5px;">
+            <strong>للمطورين فقط (احذف هذا لاحقاً):</strong><br>
+            Expected Username: "${AUTH_USERNAME}"<br>
+            Expected Password Length: ${AUTH_PASSWORD.length}<br>
+          </div>
         </body>
       </html>
     `);
@@ -48,11 +58,30 @@ const authenticateUser = (req, res, next) => {
   const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
   const [username, password] = credentials.split(':');
 
-  if (username === AUTH_USERNAME && password === AUTH_PASSWORD) {
-    console.log(`✅ User authenticated: ${username}`);
+  // debugging مفصل
+  console.log(`📝 Login attempt details:`);
+  console.log(`  Provided username: "${username}" (length: ${username.length})`);
+  console.log(`  Expected username: "${AUTH_USERNAME}" (length: ${AUTH_USERNAME.length})`);
+  console.log(`  Username match: ${username === AUTH_USERNAME}`);
+  console.log(`  Provided password length: ${password.length}`);
+  console.log(`  Expected password length: ${AUTH_PASSWORD.length}`);
+  console.log(`  Password match: ${password === AUTH_PASSWORD}`);
+
+  // مقارنة متقدمة
+  if (username.trim() === AUTH_USERNAME.trim() && password.trim() === AUTH_PASSWORD.trim()) {
+    console.log(`✅ User authenticated successfully: ${username}`);
     next();
   } else {
-    console.log(`❌ Failed authentication attempt: ${username}`);
+    console.log(`❌ Authentication failed for: ${username}`);
+    
+    // تفاصيل أكثر للـ debugging
+    if (username.trim() !== AUTH_USERNAME.trim()) {
+      console.log(`  Username mismatch: "${username.trim()}" !== "${AUTH_USERNAME.trim()}"`);
+    }
+    if (password.trim() !== AUTH_PASSWORD.trim()) {
+      console.log(`  Password mismatch (lengths: ${password.length} vs ${AUTH_PASSWORD.length})`);
+    }
+    
     res.set('WWW-Authenticate', 'Basic realm="ERP System"');
     return res.status(401).send(`
       <html>
@@ -63,6 +92,13 @@ const authenticateUser = (req, res, next) => {
         <body style="font-family: Arial; text-align: center; padding: 50px;">
           <h1>❌ خطأ في تسجيل الدخول</h1>
           <p>اسم المستخدم أو كلمة المرور غير صحيحة</p>
+          <div style="background: #fff0f0; padding: 15px; margin: 20px; border-radius: 5px;">
+            <strong>للمطورين (احذف هذا لاحقاً):</strong><br>
+            تم المحاولة بـ: "${username}"<br>
+            مطلوب: "${AUTH_USERNAME}"<br>
+            ${username === AUTH_USERNAME ? '✅ Username صحيح' : '❌ Username خطأ'}<br>
+            ${password === AUTH_PASSWORD ? '✅ Password صحيح' : '❌ Password خطأ'}
+          </div>
           <button onclick="location.reload()">إعادة المحاولة</button>
         </body>
       </html>
@@ -88,12 +124,28 @@ app.use(express.static('public'));
 // تطبيق الحماية على جميع المسارات (ما عدا health check)
 app.use((req, res, next) => {
   // السماح بـ health check بدون حماية للـ Railway
-  if (req.path === '/health') {
+  if (req.path === '/health' || req.path === '/debug') {
     return next();
   }
   
   // تطبيق الحماية على باقي المسارات
   authenticateUser(req, res, next);
+});
+
+// صفحة debug للمطورين
+app.get('/debug', (req, res) => {
+  res.json({
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: port,
+    auth: {
+      username: AUTH_USERNAME,
+      usernameLength: AUTH_USERNAME.length,
+      passwordLength: AUTH_PASSWORD.length,
+      hasOpenAI: !!process.env.OPENAI_API_KEY
+    },
+    headers: req.headers
+  });
 });
 
 // إعداد multer
@@ -133,6 +185,7 @@ app.get('/', (req, res) => {
           <p>الملف home.html غير موجود في مجلد public</p>
           <hr>
           <p><a href="/ping">اختبار الخادم</a></p>
+          <p><a href="/debug">معلومات النظام</a> (للمطورين)</p>
           <p><a href="/logout">تسجيل الخروج</a></p>
         </body>
         </html>
@@ -334,8 +387,10 @@ if (!fs.existsSync('uploads')) {
 app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${port}`);
   console.log(`🔐 Protected with authentication`);
-  console.log(`👤 Username: ${AUTH_USERNAME}`);
-  console.log(`🗝️ Password: ${AUTH_PASSWORD}`);
+  console.log(`👤 Username: "${AUTH_USERNAME}"`);
+  console.log(`🗝️ Password length: ${AUTH_PASSWORD.length}`);
+  console.log(`🌐 Access: http://localhost:${port}`);
+  console.log(`🔍 Debug info: http://localhost:${port}/debug`);
 });
 
 // إيقاف الخادم بأمان
