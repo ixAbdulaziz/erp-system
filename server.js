@@ -1,4 +1,4 @@
-// server.js - نظام ERP مع دعم PostgreSQL + localStorage
+// server.js - نظام ERP مع Basic Authentication + PostgreSQL + localStorage
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
@@ -30,39 +30,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // ===================================================================
-// إعداد التطبيق الأساسي
+// إعداد المصادقة
 // ===================================================================
-
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static('public'));
-
-// إعداد multer لرفع الملفات
-const upload = multer({
-  dest: 'uploads/',
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('نوع الملف غير مدعوم. يرجى رفع ملف PDF أو صورة فقط.'));
-    }
-  }
-});
-
-// ===================================================================
-// إعداد قاعدة البيانات والنظام المختلط
-// ===================================================================
-
-let DATABASE_AVAILABLE = false;
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 دقيقة
-
-// خريطة الجلسات (fallback)
-const activeSessions = new Map();
 
 // المستخدمين المسجلين
 const USERS = new Map();
@@ -74,7 +43,9 @@ function loadUsersFromEnv() {
     process.env.USER_2,
     process.env.DEFAULT_ADMIN_USERNAME && process.env.DEFAULT_ADMIN_PASSWORD
       ? `${process.env.DEFAULT_ADMIN_USERNAME}:${process.env.DEFAULT_ADMIN_PASSWORD}:admin`
-      : null
+      : null,
+    // المستخدم الافتراضي من النظام القديم
+    `${process.env.AUTH_USERNAME || 'admin'}:${process.env.AUTH_PASSWORD || 'password123'}:admin`
   ].filter(Boolean);
 
   users.forEach(userStr => {
@@ -86,7 +57,7 @@ function loadUsersFromEnv() {
     }
   });
 
-  // مستخدم افتراضي للتطوير
+  // مستخدم افتراضي إذا لم يوجد أي مستخدم
   if (USERS.size === 0) {
     USERS.set('admin', { username: 'admin', password: 'admin123', role: 'admin' });
     console.log('⚠️ تم إنشاء مستخدم admin افتراضي: admin/admin123');
@@ -95,7 +66,78 @@ function loadUsersFromEnv() {
   console.log(`✅ تم تحميل ${USERS.size} مستخدم`);
 }
 
-// تهيئة قاعدة البيانات
+// Basic Authentication Middleware
+const authenticateUser = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    res.set('WWW-Authenticate', 'Basic realm="نظام ERP"');
+    return res.status(401).send(`
+      <html>
+        <head>
+          <title>تسجيل الدخول مطلوب</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            h1 { color: #667eea; margin-bottom: 20px; }
+            p { color: #666; margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🔒 نظام ERP محمي</h1>
+            <p>يرجى إدخال اسم المستخدم وكلمة المرور</p>
+            <p style="color: #999; font-size: 14px;">سيتم طلب تسجيل الدخول تلقائياً</p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+
+  const base64Credentials = authHeader.split(' ')[1];
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+  const [username, password] = credentials.split(':');
+
+  const userData = USERS.get(username);
+  if (userData && userData.password === password) {
+    console.log(`✅ تسجيل دخول ناجح: ${username} (${userData.role})`);
+    req.user = { username: userData.username, role: userData.role };
+    next();
+  } else {
+    console.log(`❌ محاولة تسجيل دخول فاشلة: ${username}`);
+    res.set('WWW-Authenticate', 'Basic realm="نظام ERP"');
+    return res.status(401).send(`
+      <html>
+        <head>
+          <title>خطأ في تسجيل الدخول</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+            h1 { color: #e74c3c; margin-bottom: 20px; }
+            button { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>❌ خطأ في تسجيل الدخول</h1>
+            <p>اسم المستخدم أو كلمة المرور غير صحيحة</p>
+            <button onclick="location.reload()">إعادة المحاولة</button>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+};
+
+// ===================================================================
+// إعداد قاعدة البيانات والنظام المختلط
+// ===================================================================
+
+let DATABASE_AVAILABLE = false;
+
+// تهيئة النظام
 async function initializeSystem() {
   try {
     console.log('🚀 بدء تهيئة النظام...');
@@ -116,7 +158,7 @@ async function initializeSystem() {
           if (!userResult.success || !userResult.data) {
             await UserService.createUser({
               username: userData.username,
-              passwordHash: userData.password, // سيتم تشفيره لاحقاً
+              passwordHash: userData.password,
               role: userData.role
             });
             console.log(`👤 تم إنشاء مستخدم في قاعدة البيانات: ${username}`);
@@ -139,91 +181,114 @@ async function initializeSystem() {
 }
 
 // ===================================================================
-// دوال مساعدة للجلسات
+// إعداد التطبيق الأساسي
 // ===================================================================
 
-function generateSessionToken() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
-}
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-async function createSession(username, role, req) {
-  const token = generateSessionToken();
-  const sessionData = {
-    username,
-    role,
-    token,
-    loginTime: new Date().toISOString(),
-    lastActivity: new Date(),
-    ipAddress: req.ip,
-    userAgent: req.get('User-Agent')
-  };
+// تطبيق الحماية على جميع المسارات (ما عدا health check)
+app.use((req, res, next) => {
+  // السماح بـ health check بدون حماية للـ Railway
+  if (req.path === '/health') {
+    return next();
+  }
+  
+  // تطبيق الحماية على باقي المسارات
+  authenticateUser(req, res, next);
+});
 
-  if (DATABASE_AVAILABLE) {
-    try {
-      // البحث عن المستخدم أولاً
-      const userResult = await UserService.findUser({ username });
-      if (userResult.success && userResult.data) {
-        sessionData.userId = userResult.data.id;
-        const result = await SessionService.createSession(sessionData);
-        if (result.success) {
-          await UserService.updateLastLogin(userResult.data.id);
-          return token;
-        }
-      }
-    } catch (error) {
-      console.error('❌ خطأ في إنشاء جلسة PostgreSQL:', error.message);
+// صفحات ثابتة
+app.use(express.static('public'));
+
+// إعداد multer لرفع الملفات
+const upload = multer({
+  dest: 'uploads/',
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('نوع الملف غير مدعوم. يرجى رفع ملف PDF أو صورة فقط.'));
     }
   }
+});
 
-  // fallback إلى الذاكرة
-  activeSessions.set(token, {
-    ...sessionData,
-    loginTime: new Date().toISOString(),
-    lastActivity: Date.now()
+// ===================================================================
+// مسارات الصفحات الأساسية
+// ===================================================================
+
+// الصفحة الرئيسية - توجيه إلى home.html
+app.get('/', (req, res) => {
+  try {
+    const homePath = path.join(__dirname, 'public', 'home.html');
+    if (fs.existsSync(homePath)) {
+      res.sendFile(homePath);
+    } else {
+      res.send(`
+        <html>
+        <head>
+          <title>نظام ERP</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; background: #f5f5f5; }
+            .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            h1 { color: #667eea; }
+            .status { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 10px 0; }
+            a { color: #667eea; text-decoration: none; margin-right: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🎉 مرحباً بك في نظام ERP</h1>
+            <div class="status">
+              <p>✅ تم تسجيل الدخول بنجاح: ${req.user.username} (${req.user.role})</p>
+              <p>📊 قاعدة البيانات: ${DATABASE_AVAILABLE ? 'PostgreSQL متصل' : 'localStorage fallback'}</p>
+            </div>
+            <p>ملف home.html غير موجود في مجلد public</p>
+            <hr>
+            <p>
+              <a href="/add.html">إضافة فاتورة</a>
+              <a href="/view.html">عرض الفواتير</a>
+              <a href="/purchase-orders.html">أوامر الشراء</a>
+            </p>
+            <p>
+              <a href="/admin">لوحة الإدارة</a>
+              <a href="/ping">اختبار الخادم</a>
+            </p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('Error serving home page:', error);
+    res.status(500).send('خطأ في تحميل الصفحة الرئيسية');
+  }
+});
+
+// نقطة فحص الخادم
+app.get('/ping', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Server is running and protected!',
+    timestamp: new Date().toISOString(),
+    port: port,
+    user: req.user.username,
+    role: req.user.role,
+    database: DATABASE_AVAILABLE ? 'PostgreSQL' : 'localStorage',
+    users: USERS.size
   });
-  return token;
-}
+});
 
-async function validateSession(token) {
-  if (!token) return null;
-
-  if (DATABASE_AVAILABLE) {
-    try {
-      const result = await SessionService.findActiveSession(token);
-      if (result.success && result.data) {
-        await SessionService.updateActivity(result.data.id);
-        return {
-          username: result.data.username,
-          role: result.data.user?.role || 'user'
-        };
-      }
-    } catch (error) {
-      console.error('❌ خطأ في التحقق من الجلسة PostgreSQL:', error.message);
-    }
-  }
-
-  // fallback إلى الذاكرة
-  const session = activeSessions.get(token);
-  if (session && (Date.now() - session.lastActivity) < SESSION_TIMEOUT) {
-    session.lastActivity = Date.now();
-    return { username: session.username, role: session.role };
-  }
-
-  // إزالة الجلسة المنتهية
-  activeSessions.delete(token);
-  return null;
-}
-
-async function endSession(token) {
-  if (DATABASE_AVAILABLE) {
-    try {
-      await SessionService.endSession(token);
-    } catch (error) {
-      console.error('❌ خطأ في إنهاء جلسة PostgreSQL:', error.message);
-    }
-  }
-  activeSessions.delete(token);
-}
+// Health check للـ Railway (بدون حماية)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 
 // ===================================================================
 // دوال مساعدة للبيانات
@@ -232,7 +297,6 @@ async function endSession(token) {
 // تحويل البيانات بين localStorage و PostgreSQL
 function convertInvoiceData(invoice, isFromDB = false) {
   if (isFromDB) {
-    // من قاعدة البيانات إلى تنسيق الواجهة
     return {
       id: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
@@ -253,7 +317,6 @@ function convertInvoiceData(invoice, isFromDB = false) {
       updatedAt: invoice.updatedAt
     };
   } else {
-    // من الواجهة إلى قاعدة البيانات
     return {
       invoiceNumber: invoice.invoiceNumber,
       supplier: invoice.supplier,
@@ -274,111 +337,11 @@ function convertInvoiceData(invoice, isFromDB = false) {
 }
 
 // ===================================================================
-// Middleware للمصادقة
-// ===================================================================
-
-async function authenticateUser(req, res, next) {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '') || 
-                  req.cookies?.sessionToken ||
-                  req.headers['x-session-token'];
-
-    const user = await validateSession(token);
-    if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'غير مصرح. يرجى تسجيل الدخول مرة أخرى.' 
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('❌ خطأ في المصادقة:', error.message);
-    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
-  }
-}
-
-// ===================================================================
-// مسارات المصادقة
-// ===================================================================
-
-// تسجيل الدخول
-app.post('/api/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'اسم المستخدم وكلمة المرور مطلوبان' 
-      });
-    }
-
-    // التحقق من المستخدم
-    const userData = USERS.get(username);
-    if (!userData || userData.password !== password) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'اسم المستخدم أو كلمة المرور غير صحيح' 
-      });
-    }
-
-    // إنشاء جلسة
-    const token = await createSession(username, userData.role, req);
-
-    console.log(`✅ تسجيل دخول ناجح: ${username} (${userData.role})`);
-
-    res.json({
-      success: true,
-      data: {
-        username,
-        role: userData.role,
-        token
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في تسجيل الدخول:', error.message);
-    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
-  }
-});
-
-// تسجيل الخروج
-app.post('/api/logout', authenticateUser, async (req, res) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '') || 
-                  req.cookies?.sessionToken ||
-                  req.headers['x-session-token'];
-
-    await endSession(token);
-    console.log(`✅ تسجيل خروج: ${req.user.username}`);
-
-    res.json({ success: true, message: 'تم تسجيل الخروج بنجاح' });
-  } catch (error) {
-    console.error('❌ خطأ في تسجيل الخروج:', error.message);
-    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
-  }
-});
-
-// التحقق من الجلسة
-app.get('/api/verify', authenticateUser, (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      username: req.user.username,
-      role: req.user.role,
-      databaseMode: DATABASE_AVAILABLE ? 'PostgreSQL' : 'localStorage'
-    }
-  });
-});
-
-// ===================================================================
 // مسارات الفواتير
 // ===================================================================
 
 // رفع وتحليل فاتورة
-app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res) => {
+app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'لم يتم رفع أي ملف' });
@@ -414,7 +377,7 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
 });
 
 // حفظ فاتورة جديدة
-app.post('/api/invoice', authenticateUser, async (req, res) => {
+app.post('/api/invoice', async (req, res) => {
   try {
     const invoiceData = {
       ...req.body,
@@ -454,7 +417,7 @@ app.post('/api/invoice', authenticateUser, async (req, res) => {
 });
 
 // جلب جميع الفواتير
-app.get('/api/invoices', authenticateUser, async (req, res) => {
+app.get('/api/invoices', async (req, res) => {
   try {
     if (DATABASE_AVAILABLE) {
       try {
@@ -491,7 +454,7 @@ app.get('/api/invoices', authenticateUser, async (req, res) => {
 // ===================================================================
 
 // إضافة دفعة جديدة
-app.post('/api/payment', authenticateUser, async (req, res) => {
+app.post('/api/payment', async (req, res) => {
   try {
     const paymentData = {
       ...req.body,
@@ -529,7 +492,7 @@ app.post('/api/payment', authenticateUser, async (req, res) => {
 });
 
 // جلب دفعات مورد معين
-app.get('/api/payments/:supplier', authenticateUser, async (req, res) => {
+app.get('/api/payments/:supplier', async (req, res) => {
   try {
     const supplierName = decodeURIComponent(req.params.supplier);
 
@@ -566,7 +529,7 @@ app.get('/api/payments/:supplier', authenticateUser, async (req, res) => {
 // ===================================================================
 
 // إضافة أمر شراء جديد
-app.post('/api/purchase-order', authenticateUser, async (req, res) => {
+app.post('/api/purchase-order', async (req, res) => {
   try {
     const poData = {
       ...req.body,
@@ -604,7 +567,7 @@ app.post('/api/purchase-order', authenticateUser, async (req, res) => {
 });
 
 // جلب جميع أوامر الشراء
-app.get('/api/purchase-orders', authenticateUser, async (req, res) => {
+app.get('/api/purchase-orders', async (req, res) => {
   try {
     if (DATABASE_AVAILABLE) {
       try {
@@ -639,7 +602,7 @@ app.get('/api/purchase-orders', authenticateUser, async (req, res) => {
 // ===================================================================
 
 // إحصائيات عامة
-app.get('/api/stats', authenticateUser, async (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
     if (DATABASE_AVAILABLE) {
       try {
@@ -665,7 +628,7 @@ app.get('/api/stats', authenticateUser, async (req, res) => {
         invoices: 0,
         payments: 0,
         purchaseOrders: 0,
-        activeSessions: activeSessions.size,
+        activeSessions: 0,
         totalInvoiceAmount: 0,
         totalPaymentAmount: 0,
         outstandingAmount: 0
@@ -684,10 +647,29 @@ app.get('/api/stats', authenticateUser, async (req, res) => {
 // ===================================================================
 
 // لوحة تحكم الإدارة
-app.get('/admin', authenticateUser, async (req, res) => {
+app.get('/admin', async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
-      return res.status(403).send('⛔ غير مصرح لك بالوصول لهذه الصفحة');
+      return res.status(403).send(`
+        <html>
+          <head>
+            <title>غير مصرح</title>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+              .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+              h1 { color: #e74c3c; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⛔ غير مصرح لك بالوصول</h1>
+              <p>هذه الصفحة مخصصة للمشرفين فقط</p>
+              <a href="/">العودة للصفحة الرئيسية</a>
+            </div>
+          </body>
+        </html>
+      `);
     }
 
     // جلب إحصائيات شاملة
@@ -699,18 +681,6 @@ app.get('/admin', authenticateUser, async (req, res) => {
       } catch (error) {
         console.error('❌ خطأ في جلب إحصائيات الإدارة:', error.message);
       }
-    }
-
-    // معلومات الجلسات النشطة
-    const sessions = [];
-    for (const [token, session] of activeSessions) {
-      sessions.push({
-        username: session.username,
-        role: session.role || 'user',
-        loginTime: new Date(session.loginTime).toLocaleString('ar-SA'),
-        lastActivity: new Date(session.lastActivity).toLocaleString('ar-SA'),
-        timeLeft: Math.max(0, Math.floor((SESSION_TIMEOUT - (Date.now() - session.lastActivity)) / (1000 * 60)))
-      });
     }
 
     // معلومات المستخدمين
@@ -739,11 +709,9 @@ app.get('/admin', authenticateUser, async (req, res) => {
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { padding: 12px; text-align: center; border: 1px solid #ddd; }
           th { background: #34495e; color: white; }
-          .online { color: #27ae60; font-weight: bold; }
           .admin { color: #e74c3c; font-weight: bold; }
           .user { color: #3498db; }
           .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
-          .btn-danger { background: #e74c3c; color: white; }
           .btn-primary { background: #3498db; color: white; }
           .db-status { background: #27ae60; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; }
           .warning { background: #f39c12; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; }
@@ -761,15 +729,11 @@ app.get('/admin', authenticateUser, async (req, res) => {
         ${!DATABASE_AVAILABLE ? '<div class="warning">⚠️ تحذير: النظام يعمل بوضع localStorage. تحقق من اتصال قاعدة البيانات.</div>' : ''}
         
         <div class="card">
-          <h2>📊 إحصائيات النظام الشاملة</h2>
+          <h2>📊 إحصائيات النظام</h2>
           <div class="stats-grid">
             <div class="stat-item">
               <h3>${users.length}</h3>
               <p>إجمالي المستخدمين</p>
-            </div>
-            <div class="stat-item">
-              <h3>${sessions.length}</h3>
-              <p>الجلسات النشطة</p>
             </div>
             <div class="stat-item">
               <h3>${stats.invoices || 0}</h3>
@@ -780,20 +744,8 @@ app.get('/admin', authenticateUser, async (req, res) => {
               <p>إجمالي قيمة الفواتير</p>
             </div>
             <div class="stat-item">
-              <h3>${(stats.totalPaymentAmount || 0).toLocaleString('ar-SA')} ر.س</h3>
-              <p>إجمالي المدفوعات</p>
-            </div>
-            <div class="stat-item">
               <h3>${(stats.outstandingAmount || 0).toLocaleString('ar-SA')} ر.س</h3>
               <p>المبالغ المستحقة</p>
-            </div>
-            <div class="stat-item">
-              <h3>${stats.suppliers || 0}</h3>
-              <p>عدد الموردين</p>
-            </div>
-            <div class="stat-item">
-              <h3>${stats.purchaseOrders || 0}</h3>
-              <p>أوامر الشراء</p>
             </div>
           </div>
         </div>
@@ -801,31 +753,12 @@ app.get('/admin', authenticateUser, async (req, res) => {
         <div class="card">
           <h2>👥 المستخدمين المسجلين</h2>
           <table>
-            <tr><th>اسم المستخدم</th><th>الصلاحية</th><th>آخر تسجيل دخول</th><th>عدد مرات الدخول</th><th>الحالة</th></tr>
-            ${users.map(user => {
-              const isOnline = sessions.some(s => s.username === user.username);
-              return `<tr>
+            <tr><th>اسم المستخدم</th><th>الصلاحية</th><th>الحالة</th></tr>
+            ${users.map(user => `
+              <tr>
                 <td>${user.username}</td>
                 <td class="${user.role}">${user.role}</td>
-                <td>${user.lastLogin}</td>
-                <td>${user.loginCount}</td>
-                <td class="${isOnline ? 'online' : ''}">${isOnline ? '🟢 نشط' : '⚫ غير نشط'}</td>
-              </tr>`;
-            }).join('')}
-          </table>
-        </div>
-        
-        <div class="card">
-          <h2>🔐 الجلسات النشطة</h2>
-          <table>
-            <tr><th>المستخدم</th><th>الصلاحية</th><th>وقت الدخول</th><th>آخر نشاط</th><th>الوقت المتبقي</th></tr>
-            ${sessions.map(session => `
-              <tr>
-                <td>${session.username}</td>
-                <td class="${session.role}">${session.role}</td>
-                <td>${session.loginTime}</td>
-                <td>${session.lastActivity}</td>
-                <td>${session.timeLeft} دقيقة</td>
+                <td>✅ مُسجل</td>
               </tr>
             `).join('')}
           </table>
@@ -834,7 +767,7 @@ app.get('/admin', authenticateUser, async (req, res) => {
         <div class="card">
           <h2>🔧 الإجراءات</h2>
           <a href="/" class="btn btn-primary">الصفحة الرئيسية</a>
-          <a href="/debug" class="btn btn-primary">معلومات تقنية</a>
+          <a href="/ping" class="btn btn-primary">معلومات تقنية</a>
         </div>
       </body>
     </html>`;
@@ -845,43 +778,6 @@ app.get('/admin', authenticateUser, async (req, res) => {
     console.error('❌ خطأ في لوحة تحكم الإدارة:', error.message);
     res.status(500).send('خطأ في الخادم');
   }
-});
-
-// معلومات تقنية مفصلة
-app.get('/debug', authenticateUser, (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'غير مصرح' });
-  }
-
-  const debugInfo = {
-    timestamp: new Date().toISOString(),
-    system: {
-      nodeVersion: process.version,
-      platform: process.platform,
-      uptime: Math.floor(process.uptime()),
-      memory: process.memoryUsage(),
-      port: port,
-      environment: process.env.NODE_ENV || 'development'
-    },
-    database: {
-      available: DATABASE_AVAILABLE,
-      type: DATABASE_AVAILABLE ? 'PostgreSQL' : 'localStorage',
-      url: process.env.DATABASE_URL ? 'متصل' : 'غير محدد'
-    },
-    authentication: {
-      registeredUsers: USERS.size,
-      activeSessions: activeSessions.size,
-      sessionTimeout: SESSION_TIMEOUT / 1000 / 60 + ' دقيقة'
-    },
-    features: {
-      fileUpload: 'مفعل',
-      cors: 'مفعل',
-      staticFiles: 'مفعل',
-      adminPanel: 'مفعل'
-    }
-  };
-
-  res.json(debugInfo);
 });
 
 // ===================================================================
@@ -905,20 +801,6 @@ app.use((req, res) => {
 });
 
 // ===================================================================
-// تنظيف الجلسات المنتهية
-// ===================================================================
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, session] of activeSessions) {
-    if ((now - session.lastActivity) > SESSION_TIMEOUT) {
-      activeSessions.delete(token);
-      console.log(`🧹 تم حذف جلسة منتهية: ${session.username}`);
-    }
-  }
-}, 5 * 60 * 1000); // كل 5 دقائق
-
-// ===================================================================
 // إنشاء مجلد uploads وبدء الخادم
 // ===================================================================
 
@@ -930,17 +812,22 @@ if (!fs.existsSync('uploads')) {
 // تهيئة النظام وبدء الخادم
 initializeSystem().then(() => {
   app.listen(port, '0.0.0.0', () => {
-    console.log(`\n🎉 نظام ERP متعدد المستخدمين بدأ بنجاح!`);
+    console.log(`\n🎉 نظام ERP محمي بدأ بنجاح!`);
     console.log(`✅ المنفذ: ${port}`);
+    console.log(`🔐 نظام الحماية: Basic Authentication`);
     console.log(`👥 المستخدمين المسجلين: ${USERS.size}`);
-    console.log(`🔐 مهلة الجلسة: ${SESSION_TIMEOUT / 1000 / 60} دقيقة`);
     console.log(`🗄️ قاعدة البيانات: ${DATABASE_AVAILABLE ? 'PostgreSQL (متصل)' : 'localStorage (fallback)'}`);
-    console.log(`🔧 البيئة: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 الرابط: http://localhost:${port}`);
-    console.log(`🛡️ لوحة الإدارة: http://localhost:${port}/admin`);
+    console.log(`🌐 الرابط: https://erp-alraed.com`);
+    console.log(`🛡️ لوحة الإدارة: https://erp-alraed.com/admin`);
+    
+    // عرض بيانات المستخدمين المسجلين
+    console.log('\n👥 المستخدمين المتاحين:');
+    for (const [username, userData] of USERS) {
+      console.log(`   • ${username} (${userData.role})`);
+    }
     
     if (!DATABASE_AVAILABLE) {
-      console.log(`⚠️ تحذير: PostgreSQL غير متاح. النظام يعمل بوضع localStorage`);
+      console.log(`\n⚠️ تحذير: PostgreSQL غير متاح. النظام يعمل بوضع localStorage`);
       console.log(`🔧 للتفعيل: تحقق من متغير DATABASE_URL في Railway`);
     }
   });
