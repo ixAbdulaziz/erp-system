@@ -40,12 +40,7 @@ const USERS = new Map();
 function loadUsersFromEnv() {
   const users = [
     process.env.USER_1,
-    process.env.USER_2,
-    process.env.DEFAULT_ADMIN_USERNAME && process.env.DEFAULT_ADMIN_PASSWORD
-      ? `${process.env.DEFAULT_ADMIN_USERNAME}:${process.env.DEFAULT_ADMIN_PASSWORD}:admin`
-      : null,
-    // المستخدم الافتراضي من النظام القديم
-    `${process.env.AUTH_USERNAME || 'admin'}:${process.env.AUTH_PASSWORD || 'password123'}:admin`
+    process.env.USER_2
   ].filter(Boolean);
 
   users.forEach(userStr => {
@@ -57,10 +52,12 @@ function loadUsersFromEnv() {
     }
   });
 
-  // مستخدم افتراضي إذا لم يوجد أي مستخدم
+  // مستخدم افتراضي فقط إذا لم توجد متغيرات البيئة
   if (USERS.size === 0) {
-    USERS.set('admin', { username: 'admin', password: 'admin123', role: 'admin' });
-    console.log('⚠️ تم إنشاء مستخدم admin افتراضي: admin/admin123');
+    console.log('⚠️ لم يتم العثور على USER_1 أو USER_2 في متغيرات البيئة');
+    console.log('📝 يرجى إضافة USER_1 و USER_2 في Railway Variables');
+    USERS.set('admin', { username: 'admin', password: 'temp123', role: 'admin' });
+    console.log('⚠️ تم إنشاء مستخدم مؤقت: admin/temp123');
   }
 
   console.log(`✅ تم تحميل ${USERS.size} مستخدم`);
@@ -71,11 +68,11 @@ const authenticateUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader) {
-    res.set('WWW-Authenticate', 'Basic realm="نظام ERP"');
+    res.set('WWW-Authenticate', 'Basic realm="ERP System"');
     return res.status(401).send(`
       <html>
         <head>
-          <title>تسجيل الدخول مطلوب</title>
+          <title>Login Required</title>
           <meta charset="utf-8">
           <style>
             body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -106,11 +103,11 @@ const authenticateUser = (req, res, next) => {
     next();
   } else {
     console.log(`❌ محاولة تسجيل دخول فاشلة: ${username}`);
-    res.set('WWW-Authenticate', 'Basic realm="نظام ERP"');
+    res.set('WWW-Authenticate', 'Basic realm="ERP System"');
     return res.status(401).send(`
       <html>
         <head>
-          <title>خطأ في تسجيل الدخول</title>
+          <title>Login Error</title>
           <meta charset="utf-8">
           <style>
             body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
@@ -821,7 +818,7 @@ initializeSystem().then(() => {
     console.log(`🛡️ لوحة الإدارة: https://erp-alraed.com/admin`);
     
     // عرض بيانات المستخدمين المسجلين
-    console.log('\n👥 المستخدمين المتاحين:');
+    console.log('\n👥 المستخدمين المتاحين (من USER_1 و USER_2):');
     for (const [username, userData] of USERS) {
       console.log(`   • ${username} (${userData.role})`);
     }
