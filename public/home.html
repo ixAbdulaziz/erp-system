@@ -49,7 +49,6 @@
     @keyframes gentleFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
     @keyframes gentlePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
     @keyframes countUp { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    @keyframes loadingShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     
     .fade-up { opacity: 0; transform: translateY(30px); animation: fadeInUp 0.8s ease forwards; }
     .slide-right { opacity: 0; transform: translateX(30px); animation: slideInRight 0.6s ease forwards; }
@@ -360,7 +359,7 @@
       grid-column: 1 / -1;
     }
     
-    /* View All Link */
+    /* View All Link - positioned relative for proper placement */
     .view-all-link {
       color: var(--text-secondary);
       text-decoration: none;
@@ -415,157 +414,9 @@
       width: 4rem;
     }
     
-    /* Message Styles */
-    .message {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin: 8px 0;
-      display: none;
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 1000;
-      min-width: 300px;
-    }
-    
-    .success-message {
-      background: rgba(34, 197, 94, 0.2);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: #22c55e;
-    }
-    
-    .error-message {
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #ef4444;
-    }
-    
-    .loading-message {
-      background: rgba(14, 165, 233, 0.2);
-      border: 1px solid rgba(14, 165, 233, 0.3);
-      color: #0ea5e9;
-    }
-    
-    /* Recent Items */
-    .recent-item {
-      background: var(--glass-light);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      margin: 8px 0;
-      display: flex;
-      justify-content: between;
-      align-items: center;
-      transition: all 0.3s ease;
-    }
-    
-    .recent-item:hover {
-      background: rgba(100, 116, 139, 0.15);
-      transform: translateY(-1px);
-    }
-    
-    .recent-item-info {
-      flex: 1;
-    }
-    
-    .recent-item-info h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    
-    .recent-item-info p {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin: 2px 0;
-    }
-    
-    .recent-item-status {
-      margin-right: 16px;
-    }
-    
-    .status-pending { background: var(--warning); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; }
-    .status-paid { background: var(--success); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; }
-    .status-overdue { background: var(--danger); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; }
-    .status-completed { background: var(--success); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; }
-    
-    .no-data {
-      text-align: center;
-      color: var(--text-muted);
-      padding: 40px;
-      font-style: italic;
-    }
-    
-    /* Notifications */
-    .notification-item {
-      background: var(--glass-light);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin: 8px 0;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      transition: all 0.3s ease;
-    }
-    
-    .notification-item:hover {
-      background: rgba(100, 116, 139, 0.15);
-    }
-    
-    .notification-icon {
-      font-size: 20px;
-      margin-top: 2px;
-    }
-    
-    .notification-content {
-      flex: 1;
-    }
-    
-    .notification-content h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    
-    .notification-content p {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin: 2px 0;
-    }
-    
-    .notification-content small {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-    
-    .mark-read {
-      background: var(--success);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    
-    /* Notification Badge */
-    .notification-badge {
-      background: var(--danger);
-      color: white;
-      border-radius: 50%;
-      padding: 2px 6px;
-      font-size: 10px;
-      position: absolute;
-      top: -5px;
-      left: -5px;
-      display: none;
+    @keyframes loadingShimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
     }
     
     /* Responsive Design */
@@ -580,15 +431,6 @@
   </style>
 </head>
 <body class="flex bg-gray-900 text-gray-100 min-h-screen">
-  <!-- Loading Message -->
-  <div id="loading" class="message loading-message">تحميل البيانات...</div>
-  
-  <!-- Success Message -->
-  <div id="success-message" class="message success-message"></div>
-  
-  <!-- Error Message -->
-  <div id="error-message" class="message error-message"></div>
-
   <!-- Sidebar -->
   <aside class="sidebar w-64 flex flex-col p-8 hidden md:block">
     <div class="text-center mb-12">
@@ -629,16 +471,6 @@
         </span>
       </a>
     </nav>
-    
-    <!-- Refresh Button -->
-    <div class="mt-auto">
-      <button id="refresh-btn" class="modern-btn w-full justify-center">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        تحديث سريع
-      </button>
-    </div>
   </aside>
 
   <!-- Main Content -->
@@ -656,8 +488,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
           </div>
-          <!-- Notification Badge -->
-          <span id="notification-badge" class="notification-badge">0</span>
         </div>
       </div>
     </section>
@@ -670,7 +500,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
           </svg>
         </div>
-        <div class="kpi-value text-yellow-300" id="total-suppliers">0</div>
+        <div class="kpi-value text-yellow-300" id="supplierCount">0</div>
         <div class="kpi-label">إجمالي الموردين</div>
       </div>
 
@@ -680,7 +510,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
         </div>
-        <div class="kpi-value text-blue-300" id="total-invoices">0</div>
+        <div class="kpi-value text-blue-300" id="unpaidCount">0</div>
         <div class="kpi-label">إجمالي الفواتير</div>
       </div>
 
@@ -690,7 +520,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
           </svg>
         </div>
-        <div class="kpi-value text-green-300" id="total-purchase-orders">0</div>
+        <div class="kpi-value text-green-300" id="openOrdersCount">0</div>
         <div class="kpi-label">إجمالي أوامر الشراء</div>
       </div>
 
@@ -700,59 +530,30 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
           </svg>
         </div>
-        <div class="kpi-value text-red-300" id="remaining-amount">0 ر.س</div>
+        <div class="kpi-value text-red-300" id="outstandingSum">0 ر.س</div>
         <div class="kpi-label">المبالغ المستحقة</div>
       </div>
     </section>
 
-    <!-- Recent Invoices and Payments -->
-    <div class="grid gap-6 grid-cols-1 lg:grid-cols-2 fade-up" style="animation-delay: 0.2s;">
-      <!-- Recent Invoices -->
-      <section class="glass-card">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h3 class="text-2xl font-bold text-slate-200 mb-2">أحدث الفواتير</h3>
-            <p class="text-slate-400 text-sm">آخر 5 فواتير تم إضافتها</p>
-          </div>
-        </div>
-        <div id="recent-invoices">
-          <!-- Recent invoices will be rendered here -->
-        </div>
-      </section>
-
-      <!-- Recent Payments -->
-      <section class="glass-card">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h3 class="text-2xl font-bold text-slate-200 mb-2">أحدث المدفوعات</h3>
-            <p class="text-slate-400 text-sm">آخر 5 مدفوعات تم تسجيلها</p>
-          </div>
-        </div>
-        <div id="recent-payments">
-          <!-- Recent payments will be rendered here -->
-        </div>
-      </section>
-    </div>
-
-    <!-- Notifications Section -->
-    <section class="glass-card fade-up" style="animation-delay: 0.3s;">
-      <div class="flex items-center justify-between mb-6">
+    <!-- Suppliers Section -->
+    <section class="glass-card fade-up" style="animation-delay: 0.2s;">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h3 class="text-2xl font-bold text-slate-200 mb-2">الإشعارات</h3>
-          <p class="text-slate-400 text-sm">آخر التنبيهات والتذكيرات</p>
+          <h3 class="text-2xl font-bold text-slate-200 mb-2">آخر الموردين</h3>
+          <p class="text-slate-400 text-sm">آخر 3 موردين تم إضافة فواتير لهم</p>
         </div>
       </div>
-      <div id="notifications">
-        <!-- Notifications will be rendered here -->
+      <div id="supplier-container" class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Supplier cards will be rendered here -->
       </div>
     </section>
 
-    <!-- Latest Invoices Table -->
-    <section class="glass-card fade-up" style="animation-delay: 0.4s;">
+    <!-- Latest Invoices Section -->
+    <section class="glass-card fade-up" style="animation-delay: 0.3s;">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h3 class="text-2xl font-bold text-slate-200 mb-2">جدول الفواتير</h3>
-          <p class="text-slate-400 text-sm">عرض تفصيلي للفواتير الحديثة</p>
+          <h3 class="text-2xl font-bold text-slate-200 mb-2">أحدث الفواتير</h3>
+          <p class="text-slate-400 text-sm">آخر 5 فواتير تم إضافتها إلى النظام</p>
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
           <div class="relative flex-1 md:max-w-sm">
@@ -780,7 +581,6 @@
               <th>المورد</th>
               <th>التاريخ</th>
               <th>الإجمالي</th>
-              <th>الحالة</th>
             </tr>
           </thead>
           <tbody id="invoice-tbody">
@@ -801,472 +601,245 @@
   </main>
 
   <script>
-    // ===== إزالة جميع أكواد localStorage واستبدالها بـ API =====
+    // Formatting utilities
+    const formatCurrency = num => !num ? '0 ر.س' : new Intl.NumberFormat('en-US').format(num) + ' ر.س';
+    const loadInvoices = () => JSON.parse(localStorage.getItem('invoices') || '[]');
+    const loadPurchaseOrders = () => JSON.parse(localStorage.getItem('purchaseOrders') || '[]');
+    const loadPayments = () => JSON.parse(localStorage.getItem('payments') || '[]');
 
-    // ==== تحميل الإحصائيات من API ====
-    async function loadDashboardStats() {
-        try {
-            showLoading('تحميل الإحصائيات...');
-            
-            const response = await fetch('/api/dashboard/stats');
-            if (response.ok) {
-                const stats = await response.json();
-                displayDashboardStats(stats);
-                hideLoading();
-                return stats;
-            } else {
-                hideLoading();
-                showError('فشل في تحميل الإحصائيات');
-                return null;
-            }
-        } catch (error) {
-            hideLoading();
-            showError('خطأ في الشبكة: ' + error.message);
-            return null;
+    // Calculate outstanding amounts per supplier (invoices - payments)
+    function calculateOutstandingAmounts() {
+      const invoices = loadInvoices();
+      const payments = loadPayments();
+      
+      // Group invoices by supplier
+      const supplierInvoices = {};
+      invoices.forEach(inv => {
+        const supplier = inv.supplier || 'غير معروف';
+        if (!supplierInvoices[supplier]) {
+          supplierInvoices[supplier] = 0;
         }
+        supplierInvoices[supplier] += inv.totalAmount || 0;
+      });
+      
+      // Group payments by supplier
+      const supplierPayments = {};
+      payments.forEach(payment => {
+        const supplier = payment.supplier || 'غير معروف';
+        if (!supplierPayments[supplier]) {
+          supplierPayments[supplier] = 0;
+        }
+        supplierPayments[supplier] += payment.amount || 0;
+      });
+      
+      // Calculate outstanding per supplier
+      const supplierOutstanding = {};
+      Object.keys(supplierInvoices).forEach(supplier => {
+        const totalInvoices = supplierInvoices[supplier] || 0;
+        const totalPayments = supplierPayments[supplier] || 0;
+        const outstanding = totalInvoices - totalPayments;
+        
+        if (outstanding > 0) {
+          supplierOutstanding[supplier] = outstanding;
+        }
+      });
+      
+      // Return total outstanding amount
+      return Object.values(supplierOutstanding).reduce((sum, amount) => sum + amount, 0);
     }
 
-    // ==== عرض الإحصائيات في لوحة التحكم ====
-    function displayDashboardStats(stats) {
-        // إجمالي الفواتير
-        const totalInvoicesElement = document.getElementById('total-invoices');
-        if (totalInvoicesElement) {
-            animateNumber(totalInvoicesElement, stats.totalInvoices || 0);
-        }
-        
-        // إجمالي المبلغ
-        const totalAmountElement = document.getElementById('total-amount');
-        if (totalAmountElement) {
-            totalAmountElement.textContent = `${(stats.totalAmount || 0).toLocaleString('ar-SA')} ر.س`;
-        }
-        
-        // إجمالي المدفوعات
-        const totalPaymentsElement = document.getElementById('total-payments');
-        if (totalPaymentsElement) {
-            totalPaymentsElement.textContent = `${(stats.totalPayments || 0).toLocaleString('ar-SA')} ر.س`;
-        }
-        
-        // عدد الموردين
-        const totalSuppliersElement = document.getElementById('total-suppliers');
-        if (totalSuppliersElement) {
-            animateNumber(totalSuppliersElement, stats.totalSuppliers || 0);
-        }
-        
-        // عدد أوامر الشراء
-        const totalPurchaseOrdersElement = document.getElementById('total-purchase-orders');
-        if (totalPurchaseOrdersElement) {
-            animateNumber(totalPurchaseOrdersElement, stats.totalPurchaseOrders || 0);
-        }
-        
-        // الفواتير المعلقة
-        const pendingInvoicesElement = document.getElementById('pending-invoices');
-        if (pendingInvoicesElement) {
-            animateNumber(pendingInvoicesElement, stats.pendingInvoices || 0);
-        }
-        
-        // الفواتير المتأخرة
-        const overdueInvoicesElement = document.getElementById('overdue-invoices');
-        if (overdueInvoicesElement) {
-            animateNumber(overdueInvoicesElement, stats.overdueInvoices || 0);
-        }
-        
-        // المبلغ المتبقي
-        const remainingAmountElement = document.getElementById('remaining-amount');
-        if (remainingAmountElement) {
-            const remaining = (stats.totalAmount || 0) - (stats.totalPayments || 0);
-            remainingAmountElement.textContent = `${remaining.toLocaleString('ar-SA')} ر.س`;
-        }
-    }
-
-    // ==== تحميل آخر الفواتير ====
-    async function loadRecentInvoices() {
-        try {
-            const response = await fetch('/api/invoices?limit=5&sort=createdAt:desc');
-            if (response.ok) {
-                const invoices = await response.json();
-                displayRecentInvoices(invoices);
-                displayInvoicesTable(invoices); // عرض في الجدول أيضاً
-                return invoices;
-            }
-        } catch (error) {
-            console.error('خطأ في تحميل آخر الفواتير:', error);
-            // عرض رسالة خطأ للمستخدم
-            const container = document.getElementById('recent-invoices');
-            if (container) {
-                container.innerHTML = '<p class="no-data">خطأ في تحميل البيانات</p>';
-            }
-        }
-    }
-
-    // ==== عرض آخر الفواتير ====
-    function displayRecentInvoices(invoices) {
-        const container = document.getElementById('recent-invoices');
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        if (invoices.length === 0) {
-            container.innerHTML = '<p class="no-data">لا توجد فواتير حديثة</p>';
-            return;
-        }
-        
-        invoices.forEach(invoice => {
-            const item = document.createElement('div');
-            item.className = 'recent-item';
-            item.innerHTML = `
-                <div class="recent-item-info">
-                    <h4>فاتورة رقم: ${invoice.invoice_number || invoice.invoiceNo || 'غير محدد'}</h4>
-                    <p>المورد: ${invoice.Supplier?.name || invoice.supplier || 'غير محدد'}</p>
-                    <p>المبلغ: ${parseFloat(invoice.total_amount || invoice.totalAmount || 0).toLocaleString('ar-SA')} ${invoice.currency || 'ر.س'}</p>
-                    <p>التاريخ: ${formatDate(invoice.issue_date || invoice.date)}</p>
-                </div>
-                <div class="recent-item-status">
-                    <span class="status-${invoice.status || 'pending'}">${getStatusText(invoice.status || 'pending')}</span>
-                </div>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    // ==== عرض الفواتير في الجدول ====
-    function displayInvoicesTable(invoices) {
-        const tbody = document.getElementById('invoice-tbody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-        
-        if (invoices.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center py-12 text-slate-400">
-                        <div class="flex flex-col items-center gap-4">
-                            <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <div>
-                                <p class="font-semibold mb-1">لا توجد فواتير بعد</p>
-                                <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
-                            </div>
-                            <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        invoices.forEach((invoice, index) => {
-            const row = document.createElement('tr');
-            row.className = 'fade-up';
-            row.style.animationDelay = `${index * 0.1}s`;
-            
-            const invoiceNumber = invoice.invoice_number || invoice.invoiceNo || invoice.number || invoice.id || '-';
-            const supplier = invoice.Supplier?.name || invoice.supplier || '-';
-            const date = invoice.issue_date || invoice.date || '-';
-            const amount = invoice.total_amount || invoice.totalAmount || 0;
-            const status = invoice.status || 'pending';
-            
-            row.innerHTML = `
-                <td class="font-semibold text-slate-300">${invoiceNumber}</td>
-                <td class="text-slate-400">${supplier}</td>
-                <td class="text-slate-400">${formatDate(date)}</td>
-                <td class="font-mono font-bold text-slate-300">${formatCurrency(amount)}</td>
-                <td><span class="status-${status}">${getStatusText(status)}</span></td>
-            `;
-            
-            tbody.appendChild(row);
-        });
-    }
-
-    // ==== تحميل آخر المدفوعات ====
-    async function loadRecentPayments() {
-        try {
-            const response = await fetch('/api/payments?limit=5&sort=createdAt:desc');
-            if (response.ok) {
-                const payments = await response.json();
-                displayRecentPayments(payments);
-                return payments;
-            }
-        } catch (error) {
-            console.error('خطأ في تحميل آخر المدفوعات:', error);
-            // عرض رسالة خطأ للمستخدم
-            const container = document.getElementById('recent-payments');
-            if (container) {
-                container.innerHTML = '<p class="no-data">خطأ في تحميل البيانات</p>';
-            }
-        }
-    }
-
-    // ==== عرض آخر المدفوعات ====
-    function displayRecentPayments(payments) {
-        const container = document.getElementById('recent-payments');
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        if (payments.length === 0) {
-            container.innerHTML = '<p class="no-data">لا توجد مدفوعات حديثة</p>';
-            return;
-        }
-        
-        payments.forEach(payment => {
-            const item = document.createElement('div');
-            item.className = 'recent-item';
-            item.innerHTML = `
-                <div class="recent-item-info">
-                    <h4>دفعة: ${payment.Invoice?.invoice_number || payment.invoiceNumber || 'غير محدد'}</h4>
-                    <p>المبلغ: ${parseFloat(payment.amount || 0).toLocaleString('ar-SA')} ${payment.currency || 'ر.س'}</p>
-                    <p>الطريقة: ${payment.payment_method || payment.method || 'غير محدد'}</p>
-                    <p>التاريخ: ${formatDate(payment.payment_date || payment.date)}</p>
-                </div>
-                <div class="recent-item-status">
-                    <span class="status-${payment.status || 'completed'}">${getStatusText(payment.status || 'completed')}</span>
-                </div>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    // ==== تحميل الإشعارات ====
-    async function loadNotifications() {
-        try {
-            const response = await fetch('/api/notifications');
-            if (response.ok) {
-                const notifications = await response.json();
-                displayNotifications(notifications);
-                updateNotificationBadge(notifications.length);
-                return notifications;
-            }
-        } catch (error) {
-            console.error('خطأ في تحميل الإشعارات:', error);
-            // عرض رسالة خطأ للمستخدم
-            const container = document.getElementById('notifications');
-            if (container) {
-                container.innerHTML = '<p class="no-data">خطأ في تحميل الإشعارات</p>';
-            }
-        }
-    }
-
-    // ==== عرض الإشعارات ====
-    function displayNotifications(notifications) {
-        const container = document.getElementById('notifications');
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        if (notifications.length === 0) {
-            container.innerHTML = '<p class="no-data">لا توجد إشعارات جديدة</p>';
-            return;
-        }
-        
-        notifications.forEach(notification => {
-            const item = document.createElement('div');
-            item.className = `notification-item ${notification.type || 'info'}`;
-            item.innerHTML = `
-                <div class="notification-icon">
-                    ${getNotificationIcon(notification.type || 'info')}
-                </div>
-                <div class="notification-content">
-                    <h4>${notification.title || 'إشعار'}</h4>
-                    <p>${notification.message || notification.content || ''}</p>
-                    <small>${formatDate(notification.createdAt || notification.created_at)}</small>
-                </div>
-                <button onclick="markAsRead(${notification.id})" class="mark-read">✓</button>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    // ==== تحديث شارة الإشعارات ====
-    function updateNotificationBadge(count) {
-        const badge = document.getElementById('notification-badge');
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count;
-                badge.style.display = 'inline';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-    }
-
-    // ==== وظائف مساعدة ====
-    function getStatusText(status) {
-        const statusMap = {
-            'pending': 'معلق',
-            'paid': 'مدفوع',
-            'overdue': 'متأخر',
-            'cancelled': 'ملغي',
-            'completed': 'مكتمل'
-        };
-        return statusMap[status] || status;
-    }
-
-    function getNotificationIcon(type) {
-        const iconMap = {
-            'warning': '⚠️',
-            'info': 'ℹ️',
-            'success': '✅',
-            'error': '❌',
-            'reminder': '🔔'
-        };
-        return iconMap[type] || 'ℹ️';
-    }
-
-    function formatDate(dateString) {
-        if (!dateString) return '-';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('ar-SA');
-    }
-
-    function formatCurrency(amount) {
-        if (!amount) return '0 ر.س';
-        return new Intl.NumberFormat('ar-SA').format(amount) + ' ر.س';
-    }
-
-    // ==== إشارة الإشعار كمقروء ====
-    async function markAsRead(notificationId) {
-        try {
-            const response = await fetch(`/api/notifications/${notificationId}/read`, {
-                method: 'PUT'
-            });
-            
-            if (response.ok) {
-                await loadNotifications(); // إعادة تحميل الإشعارات
-                showSuccess('تم وضع علامة مقروء');
-            }
-        } catch (error) {
-            console.error('خطأ في تحديد الإشعار كمقروء:', error);
-            showError('فشل في تحديث الإشعار');
-        }
-    }
-
-    // ==== تحديث سريع للإحصائيات ====
-    async function quickRefresh() {
-        showLoading('تحديث البيانات...');
-        
-        await Promise.all([
-            loadDashboardStats(),
-            loadRecentInvoices(),
-            loadRecentPayments(),
-            loadNotifications()
-        ]);
-        
-        hideLoading();
-        showSuccess('✅ تم تحديث البيانات بنجاح');
-    }
-
-    // ==== وظائف مساعدة للرسائل ====
-    function showLoading(message) {
-        const loading = document.getElementById('loading');
-        if (loading) {
-            loading.textContent = message;
-            loading.style.display = 'block';
-        }
-    }
-
-    function hideLoading() {
-        const loading = document.getElementById('loading');
-        if (loading) {
-            loading.style.display = 'none';
-        }
-    }
-
-    function showSuccess(message) {
-        const success = document.getElementById('success-message');
-        if (success) {
-            success.textContent = message;
-            success.style.display = 'block';
-            setTimeout(() => success.style.display = 'none', 3000);
-        }
-        console.log(message);
-    }
-
-    function showError(message) {
-        const error = document.getElementById('error-message');
-        if (error) {
-            error.textContent = message;
-            error.style.display = 'block';
-            setTimeout(() => error.style.display = 'none', 5000);
-        }
-        console.error(message);
-    }
-
-    // ==== الأرقام المتحركة ====
+    // Animated number counter
     function animateNumber(element, targetValue, suffix = '') {
-        const startValue = 0;
-        const duration = 1000;
-        const startTime = Date.now();
+      const startValue = 0;
+      const duration = 1000;
+      const startTime = Date.now();
+      
+      function updateNumber() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const currentValue = Math.floor(startValue + (targetValue - startValue) * progress);
         
-        function updateNumber() {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const currentValue = Math.floor(startValue + (targetValue - startValue) * progress);
-            
-            element.textContent = currentValue.toLocaleString() + suffix;
-            
-            if (progress < 1) {
-                requestAnimationFrame(updateNumber);
-            }
+        element.textContent = currentValue.toLocaleString() + suffix;
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateNumber);
         }
-        
-        updateNumber();
+      }
+      
+      updateNumber();
     }
 
-    // ==== البحث في الفواتير ====
-    function setupInvoiceSearch() {
-        const searchInput = document.getElementById('invoiceSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', e => {
-                const term = e.target.value.toLowerCase();
-                document.querySelectorAll('#invoice-tbody tr').forEach(row => {
-                    const isVisible = row.textContent.toLowerCase().includes(term);
-                    row.style.display = isVisible ? '' : 'none';
-                });
-            });
-        }
-    }
+    // Render dashboard
+    function renderDashboard() {
+      const invoices = loadInvoices();
+      const purchaseOrders = loadPurchaseOrders();
+      const supplierMap = {};
 
-    // ==== تشغيل عند تحميل الصفحة ====
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚀 بدء تحميل لوحة التحكم...');
+      // Process invoices data
+      invoices.forEach(inv => {
+        const name = inv.supplier || 'غير معروف';
+        if (!supplierMap[name]) {
+          supplierMap[name] = { 
+            latestDate: '', 
+            totalInvoices: 0,
+            totalAmount: 0 
+          };
+        }
         
-        // تحميل جميع بيانات لوحة التحكم
-        Promise.all([
-            loadDashboardStats(),
-            loadRecentInvoices(),
-            loadRecentPayments(),
-            loadNotifications()
-        ]).then(() => {
-            console.log('✅ تم تحميل لوحة التحكم بنجاح');
-        }).catch(error => {
-            console.error('❌ خطأ في تحميل لوحة التحكم:', error);
-            showError('خطأ في تحميل بيانات لوحة التحكم');
+        supplierMap[name].totalInvoices++;
+        supplierMap[name].totalAmount += inv.totalAmount || 0;
+        
+        if (!supplierMap[name].latestDate || new Date(inv.date) > new Date(supplierMap[name].latestDate)) {
+          supplierMap[name].latestDate = inv.date;
+        }
+      });
+
+      // Update KPI with animations - using new payment-based outstanding calculation
+      const supplierCount = Object.keys(supplierMap).length;
+      const totalInvoices = invoices.length;
+      const totalPOCount = purchaseOrders.length;
+      const totalOutstanding = calculateOutstandingAmounts(); // New calculation
+
+      setTimeout(() => animateNumber(document.getElementById('supplierCount'), supplierCount), 100);
+      setTimeout(() => animateNumber(document.getElementById('unpaidCount'), totalInvoices), 200);
+      setTimeout(() => animateNumber(document.getElementById('openOrdersCount'), totalPOCount), 300);
+      setTimeout(() => {
+        const element = document.getElementById('outstandingSum');
+        element.textContent = formatCurrency(totalOutstanding);
+      }, 400);
+
+      // Render Suppliers with enhanced cards (show only last 3 suppliers)
+      const grid = document.getElementById('supplier-container');
+      grid.innerHTML = '';
+      
+      // Sort suppliers by latest invoice date and take only first 3
+      const sortedSuppliers = Object.entries(supplierMap)
+        .sort(([,a], [,b]) => new Date(b.latestDate) - new Date(a.latestDate))
+        .slice(0, 3);
+      
+      sortedSuppliers.forEach(([name, stats], index) => {
+        const card = document.createElement('div');
+        card.className = 'supplier-card slide-right';
+        card.style.animationDelay = `${index * 0.1}s`;
+        
+        card.innerHTML = `
+          <div class="supplier-icon">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+          </div>
+          <h4 class="text-lg font-bold text-slate-200 mb-2 break-words">${name}</h4>
+          <div class="space-y-2 text-sm text-slate-400 mb-4">
+            <div class="flex justify-between">
+              <span>الفواتير:</span>
+              <span class="text-slate-300 font-semibold">${stats.totalInvoices}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>الإجمالي:</span>
+              <span class="text-slate-300 font-semibold">${formatCurrency(stats.totalAmount)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>آخر فاتورة:</span>
+              <span class="text-slate-300 font-semibold">${stats.latestDate || '-'}</span>
+            </div>
+          </div>
+          <a href="view.html?supplier=${encodeURIComponent(name)}" class="modern-btn success w-full text-center justify-center">
+            عرض الفواتير
+          </a>
+        `;
+        
+        grid.appendChild(card);
+      });
+
+      // Add "View All Suppliers" button if there are more than 3 suppliers
+      if (Object.keys(supplierMap).length > 3) {
+        const viewAllContainer = document.createElement('div');
+        viewAllContainer.className = 'col-span-full mt-6 text-center';
+        viewAllContainer.innerHTML = `
+          <a href="view.html" class="view-all-link">
+            <span>عرض جميع الموردين</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </a>
+        `;
+        grid.appendChild(viewAllContainer);
+      } else if (Object.keys(supplierMap).length === 0) {
+        // Show empty state if no suppliers
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-12 text-slate-400">
+            <div class="flex flex-col items-center gap-4">
+              <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+              </svg>
+              <div>
+                <p class="font-semibold mb-1">لا يوجد موردون بعد</p>
+                <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
+              </div>
+              <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
+            </div>
+          </div>
+        `;
+      }
+
+      // Render Latest Invoices with enhanced table
+      const tbody = document.getElementById('invoice-tbody');
+      tbody.innerHTML = '';
+      
+      invoices
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5)
+        .forEach((inv, index) => {
+          const row = document.createElement('tr');
+          row.className = 'fade-up';
+          row.style.animationDelay = `${index * 0.1}s`;
+          
+          const invoiceNumber = inv.invoiceNo || inv.invoiceNumber || inv.number || inv.id || '-';
+          
+          row.innerHTML = `
+            <td class="font-semibold text-slate-300">${invoiceNumber}</td>
+            <td class="text-slate-400">${inv.supplier || '-'}</td>
+            <td class="text-slate-400">${inv.date || '-'}</td>
+            <td class="font-mono font-bold text-slate-300">${formatCurrency(inv.totalAmount || 0)}</td>
+          `;
+          
+          tbody.appendChild(row);
         });
-        
-        // إعداد زر التحديث السريع
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', quickRefresh);
-        }
 
-        // إعداد البحث في الفواتير
-        setupInvoiceSearch();
+      // Show empty state if no invoices
+      if (invoices.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="text-center py-12 text-slate-400">
+              <div class="flex flex-col items-center gap-4">
+                <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <div>
+                  <p class="font-semibold mb-1">لا توجد فواتير بعد</p>
+                  <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
+                </div>
+                <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Search functionality
+    document.getElementById('invoiceSearch').addEventListener('input', e => {
+      const term = e.target.value.toLowerCase();
+      document.querySelectorAll('#invoice-tbody tr').forEach(row => {
+        const isVisible = row.textContent.toLowerCase().includes(term);
+        row.style.display = isVisible ? '' : 'none';
+      });
     });
 
-    // ==== تحديث تلقائي كل دقيقة ====
-    setInterval(() => {
-        console.log('🔄 تحديث تلقائي للإحصائيات والإشعارات...');
-        loadDashboardStats();
-        loadNotifications();
-    }, 60000); // كل دقيقة
-
-    // ==== تحديث تلقائي للفواتير والمدفوعات كل 5 دقائق ====
-    setInterval(() => {
-        console.log('🔄 تحديث تلقائي للفواتير والمدفوعات...');
-        loadRecentInvoices();
-        loadRecentPayments();
-    }, 300000); // كل 5 دقائق
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+      renderDashboard();
+    });
   </script>
 </body>
 </html>
