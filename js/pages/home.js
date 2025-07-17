@@ -1,7 +1,7 @@
 /*
 ==========================================
   ملف JavaScript الرئيسي - app.js
-  نظام إدارة المشتريات
+  نظام إدارة المشتريات - محدث للاتصال بالخادم
 ==========================================
 */
 
@@ -42,6 +42,63 @@ const createElementFromHTML = (htmlString) => {
 };
 
 // =================== //
+//   APIs الخادم        //
+// =================== //
+
+/**
+ * جلب الإحصائيات من الخادم
+ */
+async function fetchDashboardStats() {
+  try {
+    const response = await fetch('/api/dashboard/stats');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('خطأ في جلب الإحصائيات:', error);
+    return {
+      supplierCount: 0,
+      invoiceCount: 0,
+      orderCount: 0,
+      totalAmount: 0
+    };
+  }
+}
+
+/**
+ * جلب الفواتير من الخادم
+ */
+async function fetchInvoices() {
+  try {
+    const response = await fetch('/api/invoices');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('خطأ في جلب الفواتير:', error);
+    return [];
+  }
+}
+
+/**
+ * جلب أوامر الشراء من الخادم
+ */
+async function fetchPurchaseOrders() {
+  try {
+    const response = await fetch('/api/purchase-orders');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('خطأ في جلب أوامر الشراء:', error);
+    return [];
+  }
+}
+
+// =================== //
 //   تحديث المؤشرات    //
 // =================== //
 
@@ -54,7 +111,7 @@ const updateKPICards = (data = {}) => {
     supplierCount = 0,
     invoiceCount = 0,
     orderCount = 0,
-    outstandingAmount = 0
+    totalAmount = 0
   } = data;
 
   // تحديث عدد الموردين
@@ -79,7 +136,7 @@ const updateKPICards = (data = {}) => {
   const outstandingElement = document.querySelector('.kpi-card.outstanding .kpi-value');
   if (outstandingElement) {
     setTimeout(() => {
-      outstandingElement.textContent = formatCurrency(outstandingAmount);
+      outstandingElement.textContent = formatCurrency(totalAmount);
     }, 400);
   }
 };
@@ -113,6 +170,41 @@ const animateNumber = (element, targetValue, suffix = '') => {
 // =================== //
 //   إدارة الموردين    //
 // =================== //
+
+/**
+ * معالجة بيانات الموردين من الفواتير
+ * @param {Array} invoices - قائمة الفواتير
+ * @returns {Array} - قائمة الموردين مع الإحصائيات
+ */
+function processSuppliers(invoices) {
+  const suppliersMap = {};
+  
+  invoices.forEach(invoice => {
+    const supplier = invoice.supplier;
+    if (!supplier) return;
+    
+    if (!suppliersMap[supplier]) {
+      suppliersMap[supplier] = {
+        name: supplier,
+        invoiceCount: 0,
+        totalAmount: 0,
+        lastInvoiceDate: null
+      };
+    }
+    
+    suppliersMap[supplier].invoiceCount++;
+    suppliersMap[supplier].totalAmount += parseFloat(invoice.totalAmount || 0);
+    
+    const invoiceDate = new Date(invoice.date);
+    if (!suppliersMap[supplier].lastInvoiceDate || 
+        invoiceDate > new Date(suppliersMap[supplier].lastInvoiceDate)) {
+      suppliersMap[supplier].lastInvoiceDate = invoice.date;
+    }
+  });
+  
+  return Object.values(suppliersMap)
+    .sort((a, b) => new Date(b.lastInvoiceDate) - new Date(a.lastInvoiceDate));
+}
 
 /**
  * عرض قائمة الموردين
@@ -263,7 +355,7 @@ const createInvoiceRow = (invoice, index) => {
   row.className = 'fade-up';
   row.style.animationDelay = `${index * 0.1}s`;
   
-  const invoiceNumber = invoice.invoiceNo || invoice.invoiceNumber || invoice.number || invoice.id || '-';
+  const invoiceNumber = invoice.invoiceNumber || invoice.number || invoice.id || '-';
   
   row.innerHTML = `
     <td class="font-semibold text-slate-300">${invoiceNumber}</td>
@@ -305,44 +397,129 @@ const initializeSearch = () => {
 /**
  * تهيئة الصفحة الرئيسية
  */
-const initializeDashboard = () => {
+const initializeDashboard = async () => {
   console.log('🚀 تم تحميل لوحة إدارة المشتريات');
   
-  // تحديث المؤشرات بقيم افتراضية (فارغة)
-  updateKPICards();
-  
-  // عرض حالة فارغة للموردين والفواتير
-  renderSuppliers([]);
-  renderInvoices([]);
+  try {
+    // عرض حالة التحميل
+    showLoadingState();
+    
+    // جلب البيانات من الخادم
+    const [stats, invoices, purchaseOrders] = await Promise.all([
+      fetchDashboardStats(),
+      fetchInvoices(),
+      fetchPurchaseOrders()
+    ]);
+    
+    // تحديث المؤشرات
+    updateKPICards({
+      supplierCount: stats.supplierCount || stats.supplier_count || 0,
+      invoiceCount: stats.invoiceCount || stats.invoice_count || 0,
+      orderCount: stats.orderCount || stats.order_count || 0,
+      totalAmount: stats.totalAmount || stats.total_amount || 0
+    });
+    
+    // معالجة وعرض الموردين
+    const suppliers = processSuppliers(invoices);
+    renderSuppliers(suppliers);
+    
+    // عرض الفواتير
+    renderInvoices(invoices);
+    
+    // إخفاء حالة التحميل
+    hideLoadingState();
+    
+  } catch (error) {
+    console.error('خطأ في تهيئة اللوحة:', error);
+    
+    // عرض حالة الخطأ
+    showErrorState();
+  }
   
   // تفعيل وظيفة البحث
   initializeSearch();
   
-  console.log('✅ تم تهيئة النظام بنجاح - جاهز للربط مع Backend');
+  console.log('✅ تم تهيئة النظام بنجاح');
 };
 
 /**
- * تحديث البيانات من API خارجي
- * @param {Object} apiData - البيانات من API
+ * عرض حالة التحميل
  */
-const updateDashboardData = (apiData) => {
-  const {
-    suppliers = [],
-    invoices = [],
-    kpis = {}
-  } = apiData;
+function showLoadingState() {
+  // تحديث KPI cards بحالة التحميل
+  document.querySelectorAll('.kpi-value').forEach(el => {
+    el.textContent = '...';
+  });
   
-  // تحديث المؤشرات
-  updateKPICards(kpis);
+  // تحديث الموردين بحالة التحميل
+  const supplierContainer = document.getElementById('supplier-container');
+  if (supplierContainer) {
+    supplierContainer.innerHTML = `
+      <div class="col-span-full text-center py-12">
+        <div class="animate-spin w-8 h-8 border-4 border-slate-600 border-t-slate-400 rounded-full mx-auto mb-4"></div>
+        <p class="text-slate-400">جاري تحميل البيانات...</p>
+      </div>
+    `;
+  }
   
-  // تحديث الموردين
-  renderSuppliers(suppliers);
+  // تحديث الفواتير بحالة التحميل
+  const invoiceTbody = document.getElementById('invoice-tbody');
+  if (invoiceTbody) {
+    invoiceTbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="text-center py-12">
+          <div class="animate-spin w-8 h-8 border-4 border-slate-600 border-t-slate-400 rounded-full mx-auto mb-4"></div>
+          <p class="text-slate-400">جاري تحميل الفواتير...</p>
+        </td>
+      </tr>
+    `;
+  }
+}
+
+/**
+ * إخفاء حالة التحميل
+ */
+function hideLoadingState() {
+  // إزالة أي مؤشرات تحميل
+  document.querySelectorAll('.animate-spin').forEach(el => {
+    el.remove();
+  });
+}
+
+/**
+ * عرض حالة الخطأ
+ */
+function showErrorState() {
+  // تحديث المؤشرات بقيم افتراضية
+  updateKPICards();
   
-  // تحديث الفواتير
-  renderInvoices(invoices);
+  // عرض رسالة خطأ للموردين
+  const supplierContainer = document.getElementById('supplier-container');
+  if (supplierContainer) {
+    supplierContainer.innerHTML = `
+      <div class="col-span-full text-center py-12 text-red-400">
+        <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <p class="font-semibold mb-2">خطأ في تحميل البيانات</p>
+        <p class="text-sm mb-4">تأكد من اتصال الخادم وقاعدة البيانات</p>
+        <button onclick="location.reload()" class="modern-btn info">إعادة المحاولة</button>
+      </div>
+    `;
+  }
   
-  console.log('📊 تم تحديث بيانات اللوحة');
-};
+  // عرض رسالة خطأ للفواتير
+  const invoiceTbody = document.getElementById('invoice-tbody');
+  if (invoiceTbody) {
+    invoiceTbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="text-center py-12 text-red-400">
+          <p>خطأ في تحميل الفواتير</p>
+        </td>
+      </tr>
+    `;
+  }
+}
 
 // =================== //
 //   معالجة الأحداث    //
@@ -372,31 +549,9 @@ window.ProcurementDashboard = {
   updateKPICards,
   renderSuppliers,
   renderInvoices,
-  updateDashboardData,
+  fetchDashboardStats,
+  fetchInvoices,
+  fetchPurchaseOrders,
   formatCurrency,
   formatDate
 };
-
-/*
-==========================================
-  ملاحظات للمطورين:
-  
-  1. هذا الملف نظيف ولا يحتوي على localStorage
-  2. جاهز للربط مع أي Backend API
-  3. يمكن استدعاء الوظائف من خلال:
-     window.ProcurementDashboard.updateDashboardData(data)
-  
-  4. مثال لتحديث البيانات:
-     const apiData = {
-       kpis: {
-         supplierCount: 15,
-         invoiceCount: 45,
-         orderCount: 12,
-         outstandingAmount: 125000
-       },
-       suppliers: [...],
-       invoices: [...]
-     };
-     window.ProcurementDashboard.updateDashboardData(apiData);
-==========================================
-*/
