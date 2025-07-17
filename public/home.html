@@ -601,245 +601,106 @@
   </main>
 
   <script>
-    // Formatting utilities
-    const formatCurrency = num => !num ? '0 ر.س' : new Intl.NumberFormat('en-US').format(num) + ' ر.س';
-    const loadInvoices = () => JSON.parse(localStorage.getItem('invoices') || '[]');
-    const loadPurchaseOrders = () => JSON.parse(localStorage.getItem('purchaseOrders') || '[]');
-    const loadPayments = () => JSON.parse(localStorage.getItem('payments') || '[]');
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- دوال مساعدة ---
+        const formatCurrency = num => !num ? '0 ر.س' : new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(num);
 
-    // Calculate outstanding amounts per supplier (invoices - payments)
-    function calculateOutstandingAmounts() {
-      const invoices = loadInvoices();
-      const payments = loadPayments();
-      
-      // Group invoices by supplier
-      const supplierInvoices = {};
-      invoices.forEach(inv => {
-        const supplier = inv.supplier || 'غير معروف';
-        if (!supplierInvoices[supplier]) {
-          supplierInvoices[supplier] = 0;
+        // --- دالة عداد الأرقام المتحرك ---
+        function animateNumber(element, targetValue, suffix = '') {
+            const startValue = 0;
+            const duration = 1200; // 1.2 ثانية
+            const startTime = Date.now();
+
+            function updateNumber() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentValue = Math.floor(startValue + (targetValue - startValue) * progress);
+                element.textContent = currentValue.toLocaleString() + suffix;
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateNumber);
+                } else {
+                    element.textContent = targetValue.toLocaleString() + suffix; // تأكد من القيمة النهائية
+                }
+            }
+            updateNumber();
         }
-        supplierInvoices[supplier] += inv.totalAmount || 0;
-      });
-      
-      // Group payments by supplier
-      const supplierPayments = {};
-      payments.forEach(payment => {
-        const supplier = payment.supplier || 'غير معروف';
-        if (!supplierPayments[supplier]) {
-          supplierPayments[supplier] = 0;
+
+        // --- دالة عرض لوحة المعلومات ---
+        async function renderDashboard() {
+            try {
+                // جلب الإحصائيات من الخادم
+                const statsRes = await fetch('/api/stats');
+                if (!statsRes.ok) throw new Error('فشل جلب الإحصائيات');
+                const statsData = await statsRes.json();
+                const stats = statsData.data;
+
+                // جلب الموردين من الخادم
+                const suppliersRes = await fetch('/api/suppliers');
+                if (!suppliersRes.ok) throw new Error('فشل جلب الموردين');
+                const suppliersData = await suppliersRes.json();
+                const allSuppliers = suppliersData.data;
+
+                // تحديث بطاقات الإحصائيات (KPIs)
+                animateNumber(document.getElementById('supplierCount'), stats.suppliers);
+                animateNumber(document.getElementById('unpaidCount'), stats.invoices);
+                animateNumber(document.getElementById('openOrdersCount'), stats.purchaseOrders);
+                document.getElementById('outstandingSum').textContent = formatCurrency(stats.outstandingAmount);
+
+                // عرض آخر 3 موردين نشاطًا
+                const supplierGrid = document.getElementById('supplier-container');
+                supplierGrid.innerHTML = '';
+                
+                const sortedSuppliers = allSuppliers.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 3);
+                
+                if (sortedSuppliers.length === 0) {
+                    supplierGrid.innerHTML = `<p class="col-span-full text-center text-slate-400">لا يوجد موردون بعد. ابدأ بإضافة فاتورة.</p>`;
+                } else {
+                    sortedSuppliers.forEach((supplier, index) => {
+                        const card = document.createElement('div');
+                        card.className = 'supplier-card slide-right';
+                        card.style.animationDelay = `${index * 0.1}s`;
+                        card.innerHTML = `
+                          <div class="supplier-icon">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                          </div>
+                          <h4 class="text-lg font-bold text-slate-200 mb-2 break-words">${supplier.name}</h4>
+                          <div class="space-y-2 text-sm text-slate-400 mb-4">
+                            <div class="flex justify-between"><span>الفواتير:</span><span class="text-slate-300 font-semibold">${supplier.totalInvoices || 0}</span></div>
+                            <div class="flex justify-between"><span>الإجمالي:</span><span class="text-slate-300 font-semibold">${formatCurrency(supplier.totalAmount)}</span></div>
+                            <div class="flex justify-between"><span>المستحق:</span><span class="text-yellow-400 font-semibold">${formatCurrency(supplier.outstandingAmount)}</span></div>
+                          </div>
+                          <a href="view.html?supplier=${encodeURIComponent(supplier.name)}" class="modern-btn success w-full text-center justify-center mt-4">عرض التفاصيل</a>
+                        `;
+                        supplierGrid.appendChild(card);
+                    });
+                }
+                
+                // عرض أحدث 5 فواتير (هذه تتطلب API خاص بها أو فلترة من قائمة شاملة)
+                // كحل مؤقت، سنتركها فارغة حتى يتم بناء API مخصص لها
+                const tbody = document.getElementById('invoice-tbody');
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-400">جاري تطوير قسم أحدث الفواتير...</td></tr>`;
+
+            } catch (error) {
+                console.error("فشل في عرض لوحة المعلومات:", error);
+                document.querySelector('main').innerHTML = `<div class="glass-card text-center text-red-400"><h2>خطأ في الاتصال بالخادم</h2><p>${error.message}</p></div>`;
+            }
         }
-        supplierPayments[supplier] += payment.amount || 0;
-      });
-      
-      // Calculate outstanding per supplier
-      const supplierOutstanding = {};
-      Object.keys(supplierInvoices).forEach(supplier => {
-        const totalInvoices = supplierInvoices[supplier] || 0;
-        const totalPayments = supplierPayments[supplier] || 0;
-        const outstanding = totalInvoices - totalPayments;
-        
-        if (outstanding > 0) {
-          supplierOutstanding[supplier] = outstanding;
-        }
-      });
-      
-      // Return total outstanding amount
-      return Object.values(supplierOutstanding).reduce((sum, amount) => sum + amount, 0);
-    }
 
-    // Animated number counter
-    function animateNumber(element, targetValue, suffix = '') {
-      const startValue = 0;
-      const duration = 1000;
-      const startTime = Date.now();
-      
-      function updateNumber() {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const currentValue = Math.floor(startValue + (targetValue - startValue) * progress);
-        
-        element.textContent = currentValue.toLocaleString() + suffix;
-        
-        if (progress < 1) {
-          requestAnimationFrame(updateNumber);
-        }
-      }
-      
-      updateNumber();
-    }
-
-    // Render dashboard
-    function renderDashboard() {
-      const invoices = loadInvoices();
-      const purchaseOrders = loadPurchaseOrders();
-      const supplierMap = {};
-
-      // Process invoices data
-      invoices.forEach(inv => {
-        const name = inv.supplier || 'غير معروف';
-        if (!supplierMap[name]) {
-          supplierMap[name] = { 
-            latestDate: '', 
-            totalInvoices: 0,
-            totalAmount: 0 
-          };
-        }
-        
-        supplierMap[name].totalInvoices++;
-        supplierMap[name].totalAmount += inv.totalAmount || 0;
-        
-        if (!supplierMap[name].latestDate || new Date(inv.date) > new Date(supplierMap[name].latestDate)) {
-          supplierMap[name].latestDate = inv.date;
-        }
-      });
-
-      // Update KPI with animations - using new payment-based outstanding calculation
-      const supplierCount = Object.keys(supplierMap).length;
-      const totalInvoices = invoices.length;
-      const totalPOCount = purchaseOrders.length;
-      const totalOutstanding = calculateOutstandingAmounts(); // New calculation
-
-      setTimeout(() => animateNumber(document.getElementById('supplierCount'), supplierCount), 100);
-      setTimeout(() => animateNumber(document.getElementById('unpaidCount'), totalInvoices), 200);
-      setTimeout(() => animateNumber(document.getElementById('openOrdersCount'), totalPOCount), 300);
-      setTimeout(() => {
-        const element = document.getElementById('outstandingSum');
-        element.textContent = formatCurrency(totalOutstanding);
-      }, 400);
-
-      // Render Suppliers with enhanced cards (show only last 3 suppliers)
-      const grid = document.getElementById('supplier-container');
-      grid.innerHTML = '';
-      
-      // Sort suppliers by latest invoice date and take only first 3
-      const sortedSuppliers = Object.entries(supplierMap)
-        .sort(([,a], [,b]) => new Date(b.latestDate) - new Date(a.latestDate))
-        .slice(0, 3);
-      
-      sortedSuppliers.forEach(([name, stats], index) => {
-        const card = document.createElement('div');
-        card.className = 'supplier-card slide-right';
-        card.style.animationDelay = `${index * 0.1}s`;
-        
-        card.innerHTML = `
-          <div class="supplier-icon">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-          </div>
-          <h4 class="text-lg font-bold text-slate-200 mb-2 break-words">${name}</h4>
-          <div class="space-y-2 text-sm text-slate-400 mb-4">
-            <div class="flex justify-between">
-              <span>الفواتير:</span>
-              <span class="text-slate-300 font-semibold">${stats.totalInvoices}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>الإجمالي:</span>
-              <span class="text-slate-300 font-semibold">${formatCurrency(stats.totalAmount)}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>آخر فاتورة:</span>
-              <span class="text-slate-300 font-semibold">${stats.latestDate || '-'}</span>
-            </div>
-          </div>
-          <a href="view.html?supplier=${encodeURIComponent(name)}" class="modern-btn success w-full text-center justify-center">
-            عرض الفواتير
-          </a>
-        `;
-        
-        grid.appendChild(card);
-      });
-
-      // Add "View All Suppliers" button if there are more than 3 suppliers
-      if (Object.keys(supplierMap).length > 3) {
-        const viewAllContainer = document.createElement('div');
-        viewAllContainer.className = 'col-span-full mt-6 text-center';
-        viewAllContainer.innerHTML = `
-          <a href="view.html" class="view-all-link">
-            <span>عرض جميع الموردين</span>
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </a>
-        `;
-        grid.appendChild(viewAllContainer);
-      } else if (Object.keys(supplierMap).length === 0) {
-        // Show empty state if no suppliers
-        grid.innerHTML = `
-          <div class="col-span-full text-center py-12 text-slate-400">
-            <div class="flex flex-col items-center gap-4">
-              <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-              </svg>
-              <div>
-                <p class="font-semibold mb-1">لا يوجد موردون بعد</p>
-                <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
-              </div>
-              <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
-            </div>
-          </div>
-        `;
-      }
-
-      // Render Latest Invoices with enhanced table
-      const tbody = document.getElementById('invoice-tbody');
-      tbody.innerHTML = '';
-      
-      invoices
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 5)
-        .forEach((inv, index) => {
-          const row = document.createElement('tr');
-          row.className = 'fade-up';
-          row.style.animationDelay = `${index * 0.1}s`;
-          
-          const invoiceNumber = inv.invoiceNo || inv.invoiceNumber || inv.number || inv.id || '-';
-          
-          row.innerHTML = `
-            <td class="font-semibold text-slate-300">${invoiceNumber}</td>
-            <td class="text-slate-400">${inv.supplier || '-'}</td>
-            <td class="text-slate-400">${inv.date || '-'}</td>
-            <td class="font-mono font-bold text-slate-300">${formatCurrency(inv.totalAmount || 0)}</td>
-          `;
-          
-          tbody.appendChild(row);
+        // --- البحث ---
+        document.getElementById('invoiceSearch').addEventListener('input', e => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('#invoice-tbody tr').forEach(row => {
+                const isVisible = row.textContent.toLowerCase().includes(term);
+                row.style.display = isVisible ? '' : 'none';
+            });
         });
 
-      // Show empty state if no invoices
-      if (invoices.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="4" class="text-center py-12 text-slate-400">
-              <div class="flex flex-col items-center gap-4">
-                <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                <div>
-                  <p class="font-semibold mb-1">لا توجد فواتير بعد</p>
-                  <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
-                </div>
-                <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
-              </div>
-            </td>
-          </tr>
-        `;
-      }
-    }
-
-    // Search functionality
-    document.getElementById('invoiceSearch').addEventListener('input', e => {
-      const term = e.target.value.toLowerCase();
-      document.querySelectorAll('#invoice-tbody tr').forEach(row => {
-        const isVisible = row.textContent.toLowerCase().includes(term);
-        row.style.display = isVisible ? '' : 'none';
-      });
+        // --- بدء التشغيل ---
+        renderDashboard();
     });
-
-    // Initialize dashboard
-    document.addEventListener('DOMContentLoaded', () => {
-      renderDashboard();
-    });
-  </script>
+</script>
 </body>
 </html>
