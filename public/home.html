@@ -1,706 +1,209 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl" class="dark">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لوحة إدارة المشتريات</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700&display=swap');
-    
-    :root {
-      --primary: linear-gradient(135deg, #475569 0%, #334155 100%);
-      --accent: linear-gradient(135deg, #64748b 0%, #475569 100%);
-      --success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      --info: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-      --warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      --danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      --purple: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-      --edit: linear-gradient(135deg, #64748b 0%, #475569 100%);
-      --glass: rgba(15, 23, 42, 0.8);
-      --glass-light: rgba(30, 41, 59, 0.6);
-      --border: rgba(148, 163, 184, 0.1);
-      --border-light: rgba(148, 163, 184, 0.2);
-      --text: #f8fafc;
-      --text-secondary: #e2e8f0;
-      --text-muted: #94a3b8;
-      --shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-      --shadow-soft: 0 10px 25px rgba(0, 0, 0, 0.15);
-    }
-    
-    * { box-sizing: border-box; }
-    
-    body { 
-      font-family: 'Tajawal', sans-serif; 
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 100%);
-      background-attachment: fixed;
-      color: var(--text);
-      overflow-x: hidden;
-    }
-    
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.3); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); }
-    
-    @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
-    @keyframes slideInRight { 0% { opacity: 0; transform: translateX(30px); } 100% { opacity: 1; transform: translateX(0); } }
-    @keyframes gentleShimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-    @keyframes gentleFloat { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
-    @keyframes gentlePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-    @keyframes countUp { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    
-    .fade-up { opacity: 0; transform: translateY(30px); animation: fadeInUp 0.8s ease forwards; }
-    .slide-right { opacity: 0; transform: translateX(30px); animation: slideInRight 0.6s ease forwards; }
-    
-    /* Enhanced Sidebar */
-    .sidebar {
-      background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-      backdrop-filter: blur(20px);
-      border-left: 1px solid var(--border-light);
-      box-shadow: var(--shadow);
-    }
-    
-    .nav-link {
-      transition: all 0.4s ease;
-      position: relative;
-      overflow: hidden;
-      border-radius: 16px;
-      margin: 4px 0;
-      backdrop-filter: blur(10px);
-    }
-    
-    .nav-link::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0;
-      width: 0; height: 100%;
-      background: var(--accent);
-      transition: all 0.4s ease;
-      z-index: -1;
-      border-radius: 16px;
-    }
-    
-    .nav-link:hover::before, .nav-link.active::before { width: 100%; }
-    .nav-link:hover, .nav-link.active { 
-      transform: translateX(-8px); 
-      color: var(--text); 
-      box-shadow: 0 8px 25px rgba(100, 116, 139, 0.3);
-    }
-    
-    /* Enhanced Glass Cards */
-    .glass-card, .modern-table-container, .page-header {
-      background: var(--glass);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .glass-card::before, .modern-table-container::before, .page-header::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: var(--accent);
-      background-size: 200% 100%;
-      animation: gentleShimmer 4s ease-in-out infinite;
-    }
-    
-    /* Enhanced KPI Cards */
-    .kpi-card {
-      background: var(--glass);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: var(--shadow-soft);
-      position: relative;
-      overflow: hidden;
-      transition: all 0.5s ease;
-      cursor: pointer;
-      text-align: center;
-    }
-    
-    .kpi-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      transition: all 0.4s ease;
-      border-radius: 24px 24px 0 0;
-    }
-    
-    .kpi-card.suppliers::before { background: var(--warning); }
-    .kpi-card.unpaid::before { background: var(--info); }
-    .kpi-card.orders::before { background: var(--success); }
-    .kpi-card.outstanding::before { background: var(--danger); }
-    
-    .kpi-card:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: var(--shadow);
-    }
-    
-    .kpi-card:hover::before {
-      height: 6px;
-    }
-    
-    .kpi-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px auto;
-      animation: gentleFloat 4s ease-in-out infinite;
-    }
-    
-    .kpi-icon.suppliers { background: var(--warning); box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3); }
-    .kpi-icon.unpaid { background: var(--info); box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3); }
-    .kpi-icon.orders { background: var(--success); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3); }
-    .kpi-icon.outstanding { background: var(--danger); box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
-    
-    .kpi-value {
-      font-size: 2rem;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 8px;
-      animation: countUp 0.8s ease forwards;
-      text-align: center;
-    }
-    
-    .kpi-label {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      text-align: center;
-    }
-    
-    /* Search Input Styling */
-    .search-input {
-      background: rgba(100, 116, 139, 0.15) !important;
-      border: 2px solid rgba(100, 116, 139, 0.4) !important;
-      border-radius: 12px;
-      padding: 12px 16px;
-      color: #e2e8f0 !important;
-      font-size: 14px;
-      font-weight: 500;
-      backdrop-filter: blur(15px);
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(100, 116, 139, 0.2) !important;
-      text-align: right;
-      direction: rtl;
-      width: 100%;
-    }
-    
-    .search-input:focus {
-      outline: none !important;
-      background: rgba(100, 116, 139, 0.2) !important;
-      border-color: rgba(100, 116, 139, 0.6) !important;
-      box-shadow: 0 0 20px rgba(100, 116, 139, 0.4) !important;
-      transform: translateY(-1px);
-      color: #f1f5f9 !important;
-    }
-    
-    .search-input::placeholder {
-      color: rgba(241, 245, 249, 0.7) !important;
-      font-weight: 400;
-      opacity: 0.9;
-    }
-    
-    .search-input:hover {
-      background: rgba(100, 116, 139, 0.18) !important;
-      border-color: rgba(100, 116, 139, 0.5) !important;
-      box-shadow: 0 6px 20px rgba(100, 116, 139, 0.25) !important;
-    }
-    
-    /* Enhanced Supplier Cards */
-    .supplier-card {
-      background: var(--glass-light);
-      backdrop-filter: blur(15px);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 24px;
-      transition: all 0.5s ease;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-    }
-    
-    .supplier-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: var(--accent);
-      transform: scaleX(0);
-      transition: transform 0.4s ease;
-    }
-    
-    .supplier-card:hover::before {
-      transform: scaleX(1);
-    }
-    
-    .supplier-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 20px 50px rgba(100, 116, 139, 0.2);
-      border-color: var(--border-light);
-    }
-    
-    .supplier-icon {
-      width: 40px;
-      height: 40px;
-      background: var(--accent);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      animation: gentlePulse 4s ease-in-out infinite;
-      box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
-    }
-    
-    /* Enhanced Table */
-    .modern-table-container {
-      padding: 0;
-      overflow: hidden;
-    }
-    
-    .modern-table-container table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-    
-    .modern-table-container thead th {
-      background: var(--primary);
-      padding: 16px 24px;
-      text-align: right;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: var(--text);
-      text-transform: uppercase;
-      border-bottom: 2px solid var(--border);
-    }
-    
-    .modern-table-container tbody tr {
-      transition: all 0.3s ease;
-      background: rgba(15, 23, 42, 0.3);
-    }
-    
-    .modern-table-container tbody tr:nth-child(even) {
-      background: rgba(30, 41, 59, 0.2);
-    }
-    
-    .modern-table-container tbody tr:hover {
-      background: rgba(100, 116, 139, 0.15);
-      transform: translateY(-1px);
-    }
-    
-    .modern-table-container tbody td {
-      padding: 16px 24px;
-      color: var(--text-secondary);
-      font-size: 14px;
-      border-bottom: 1px solid var(--border);
-      transition: all 0.3s ease;
-    }
-    
-    /* Modern Button */
-    .modern-btn {
-      background: var(--primary);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 12px 20px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.4s ease;
-      box-shadow: var(--shadow-soft);
-      position: relative;
-      overflow: hidden;
-      backdrop-filter: blur(10px);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-    }
-    
-    .modern-btn::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-      transition: left 0.6s ease;
-    }
-    
-    .modern-btn:hover::before { left: 100%; }
-    .modern-btn:hover { 
-      transform: translateY(-2px); 
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
-      border-color: var(--border-light);
-      color: var(--text);
-      text-decoration: none;
-    }
-    
-    .modern-btn.success { background: var(--success); box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3); }
-    .modern-btn.warning { background: var(--warning); box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3); }
-    .modern-btn.info { background: var(--info); box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3); }
-    .modern-btn.edit { background: linear-gradient(135deg, #64748b 0%, #475569 100%); box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3); }
-    
-    /* Grid utility for spanning full width */
-    .col-span-full {
-      grid-column: 1 / -1;
-    }
-    
-    /* View All Link - positioned relative for proper placement */
-    .view-all-link {
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-weight: 500;
-      padding: 12px 20px;
-      border-radius: 12px;
-      background: rgba(100, 116, 139, 0.15);
-      border: 1px solid var(--border);
-      transition: all 0.4s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow-soft);
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .view-all-link::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-      transition: left 0.6s ease;
-    }
-    
-    .view-all-link:hover::before { left: 100%; }
-    .view-all-link:hover {
-      background: rgba(100, 116, 139, 0.2);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgba(100, 116, 139, 0.3);
-      color: var(--text);
-      text-decoration: none;
-      border-color: var(--border-light);
-    }
-    
-    /* Header Icon */
-    .header-icon {
-      background: var(--accent);
-      box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
-      animation: gentlePulse 4s ease-in-out infinite;
-    }
-    
-    /* Loading State for Numbers */
-    .loading-number {
-      background: linear-gradient(90deg, var(--border) 25%, rgba(148, 163, 184, 0.3) 50%, var(--border) 75%);
-      background-size: 200% 100%;
-      animation: loadingShimmer 1.5s infinite;
-      border-radius: 8px;
-      height: 2rem;
-      width: 4rem;
-    }
-    
-    @keyframes loadingShimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .glass-card, .page-header { padding: 24px 20px; }
-      .kpi-card { padding: 20px; }
-      .supplier-card { padding: 20px; }
-      .kpi-value { font-size: 1.75rem; }
-      .modern-table-container thead th,
-      .modern-table-container tbody td { padding: 12px 16px; font-size: 12px; }
-    }
-  </style>
-</head>
-<body class="flex bg-gray-900 text-gray-100 min-h-screen">
-  <!-- Sidebar -->
-  <aside class="sidebar w-64 flex flex-col p-8 hidden md:block">
-    <div class="text-center mb-12">
-      <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 bg-clip-text text-transparent">المشتريات</h1>
-      <div class="w-20 h-1 bg-gradient-to-r from-slate-500 to-slate-400 mx-auto mt-3 rounded-full"></div>
-    </div>
-    <nav class="space-y-4 flex-1">
-      <a href="home.html" class="nav-link active block py-4 px-6">
-        <span class="relative z-10 flex items-center gap-3">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
-          </svg>
+!DOCTYPE html
+html lang=ar dir=rtl class=dark
+head
+  meta charset=UTF-8
+  meta name=viewport content=width=device-width, initial-scale=1.0
+  titleلوحة إدارة المشترياتtitle
+  !-- ربط ملف CSS --
+  link rel=stylesheet href=cssstyles.css
+  !-- ربط خطوط جوجل --
+  link href=httpsfonts.googleapis.comcss2family=Tajawalwght@300;400;500;600;700&display=swap rel=stylesheet
+  !-- Tailwind CSS --
+  script src=httpscdn.tailwindcss.complugins=formsscript
+head
+body class=flex bg-gray-900 text-gray-100 min-h-screen
+  !-- Sidebar --
+  aside class=sidebar w-64 flex flex-col p-8 hidden mdblock
+    div class=text-center mb-12
+      h1 class=text-3xl font-bold bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 bg-clip-text text-transparentالمشترياتh1
+      div class=w-20 h-1 bg-gradient-to-r from-slate-500 to-slate-400 mx-auto mt-3 rounded-fulldiv
+    div
+    nav class=space-y-4 flex-1
+      a href=home.html class=nav-link active block py-4 px-6
+        span class=relative z-10 flex items-center gap-3
+          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2zpath
+          svg
           لوحة المعلومات
-        </span>
-      </a>
-      <a href="add.html" class="nav-link block py-4 px-6">
-        <span class="relative z-10 flex items-center gap-3">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
+        span
+      a
+      a href=add.html class=nav-link block py-4 px-6
+        span class=relative z-10 flex items-center gap-3
+          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 6v6m0 0v6m0-6h6m-6 0H6path
+          svg
           إضافة فاتورة
-        </span>
-      </a>
-      <a href="view.html" class="nav-link block py-4 px-6">
-        <span class="relative z-10 flex items-center gap-3">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
+        span
+      a
+      a href=view.html class=nav-link block py-4 px-6
+        span class=relative z-10 flex items-center gap-3
+          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zpath
+          svg
           عرض الفواتير
-        </span>
-      </a>
-      <a href="purchase-orders.html" class="nav-link block py-4 px-6">
-        <span class="relative z-10 flex items-center gap-3">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-          </svg>
+        span
+      a
+      a href=purchase-orders.html class=nav-link block py-4 px-6
+        span class=relative z-10 flex items-center gap-3
+          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01path
+          svg
           أوامر الشراء
-        </span>
-      </a>
-    </nav>
-  </aside>
+        span
+      a
+    nav
+  aside
 
-  <!-- Main Content -->
-  <main class="flex-1 p-8 space-y-8">
-    <!-- Page Header -->
-    <section class="page-header fade-up">
-      <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 class="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2">لوحة إدارة المشتريات</h2>
-          <p class="text-slate-400 text-base">نظرة عامة على حالة المشتريات والفواتير</p>
-        </div>
-        <div class="hidden md:block relative">
-          <div class="w-16 h-16 header-icon rounded-2xl flex items-center justify-center">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </section>
+  !-- Main Content --
+  main class=flex-1 p-8 space-y-8
+    !-- Page Header --
+    section class=page-header fade-up
+      div class=flex items-center justify-between flex-wrap gap-4
+        div
+          h2 class=text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2لوحة إدارة المشترياتh2
+          p class=text-slate-400 text-baseنظرة عامة على حالة المشتريات والفواتيرp
+        div
+        div class=hidden mdblock relative
+          div class=w-16 h-16 header-icon rounded-2xl flex items-center justify-center
+            svg class=w-8 h-8 text-white fill=none stroke=currentColor viewBox=0 0 24 24
+              path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2zpath
+            svg
+          div
+        div
+      div
+    section
 
-    <!-- KPI Cards -->
-    <section class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 fade-up" style="animation-delay: 0.1s;">
-      <div class="kpi-card suppliers">
-        <div class="kpi-icon suppliers">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-          </svg>
-        </div>
-        <div class="kpi-value text-yellow-300" id="supplierCount">0</div>
-        <div class="kpi-label">إجمالي الموردين</div>
-      </div>
+    !-- KPI Cards --
+    section class=grid gap-6 grid-cols-1 smgrid-cols-2 lggrid-cols-4 fade-up style=animation-delay 0.1s;
+      div class=kpi-card suppliers
+        div class=kpi-icon suppliers
+          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0zpath
+          svg
+        div
+        div class=kpi-value text-yellow-3000div
+        div class=kpi-labelإجمالي الموردينdiv
+      div
 
-      <div class="kpi-card unpaid">
-        <div class="kpi-icon unpaid">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </div>
-        <div class="kpi-value text-blue-300" id="unpaidCount">0</div>
-        <div class="kpi-label">إجمالي الفواتير</div>
-      </div>
+      div class=kpi-card unpaid
+        div class=kpi-icon unpaid
+          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0zpath
+          svg
+        div
+        div class=kpi-value text-blue-3000div
+        div class=kpi-labelإجمالي الفواتيرdiv
+      div
 
-      <div class="kpi-card orders">
-        <div class="kpi-icon orders">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-          </svg>
-        </div>
-        <div class="kpi-value text-green-300" id="openOrdersCount">0</div>
-        <div class="kpi-label">إجمالي أوامر الشراء</div>
-      </div>
+      div class=kpi-card orders
+        div class=kpi-icon orders
+          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138zpath
+          svg
+        div
+        div class=kpi-value text-green-3000div
+        div class=kpi-labelإجمالي أوامر الشراءdiv
+      div
 
-      <div class="kpi-card outstanding">
-        <div class="kpi-icon outstanding">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-          </svg>
-        </div>
-        <div class="kpi-value text-red-300" id="outstandingSum">0 ر.س</div>
-        <div class="kpi-label">المبالغ المستحقة</div>
-      </div>
-    </section>
+      div class=kpi-card outstanding
+        div class=kpi-icon outstanding
+          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1path
+          svg
+        div
+        div class=kpi-value text-red-3000 ر.سdiv
+        div class=kpi-labelالمبالغ المستحقةdiv
+      div
+    section
 
-    <!-- Suppliers Section -->
-    <section class="glass-card fade-up" style="animation-delay: 0.2s;">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h3 class="text-2xl font-bold text-slate-200 mb-2">آخر الموردين</h3>
-          <p class="text-slate-400 text-sm">آخر 3 موردين تم إضافة فواتير لهم</p>
-        </div>
-      </div>
-      <div id="supplier-container" class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <!-- Supplier cards will be rendered here -->
-      </div>
-    </section>
+    !-- Suppliers Section --
+    section class=glass-card fade-up style=animation-delay 0.2s;
+      div class=flex flex-col mdflex-row mditems-center mdjustify-between gap-4 mb-6
+        div
+          h3 class=text-2xl font-bold text-slate-200 mb-2آخر الموردينh3
+          p class=text-slate-400 text-smآخر 3 موردين تم إضافة فواتير لهمp
+        div
+      div
+      div id=supplier-container class=col-span-full text-center py-12 text-slate-400
+        div class=flex flex-col items-center gap-4
+          svg class=w-12 h-12 text-slate-600 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0zpath
+          svg
+          div
+            p class=font-semibold mb-1لا يوجد موردون بعدp
+            p class=text-smابدأ بإضافة أول فاتورةp
+          div
+          a href=add.html class=modern-btn infoإضافة فاتورة جديدةa
+        div
+      div
+    section
 
-    <!-- Latest Invoices Section -->
-    <section class="glass-card fade-up" style="animation-delay: 0.3s;">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h3 class="text-2xl font-bold text-slate-200 mb-2">أحدث الفواتير</h3>
-          <p class="text-slate-400 text-sm">آخر 5 فواتير تم إضافتها إلى النظام</p>
-        </div>
-        <div class="flex items-center gap-4 w-full md:w-auto">
-          <div class="relative flex-1 md:max-w-sm">
-            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </div>
-            <input id="invoiceSearch" type="text" placeholder="ابحث في الفواتير..." class="search-input pr-10" />
-          </div>
-          <a href="add.html" class="modern-btn info whitespace-nowrap">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
+    !-- Latest Invoices Section --
+    section class=glass-card fade-up style=animation-delay 0.3s;
+      div class=flex flex-col mdflex-row mditems-center mdjustify-between gap-4 mb-6
+        div
+          h3 class=text-2xl font-bold text-slate-200 mb-2أحدث الفواتيرh3
+          p class=text-slate-400 text-smآخر 5 فواتير تم إضافتها إلى النظامp
+        div
+        div class=flex items-center gap-4 w-full mdw-auto
+          div class=relative flex-1 mdmax-w-sm
+            div class=absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none
+              svg class=w-5 h-5 text-slate-400 fill=none stroke=currentColor viewBox=0 0 24 24
+                path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zpath
+              svg
+            div
+            input id=invoiceSearch type=text placeholder=ابحث في الفواتير... class=search-input pr-10 
+          div
+          a href=add.html class=modern-btn info whitespace-nowrap
+            svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+              path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 6v6m0 0v6m0-6h6m-6 0H6path
+            svg
             إضافة فاتورة
-          </a>
-        </div>
-      </div>
+          a
+        div
+      div
       
-      <div class="modern-table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>رقم الفاتورة</th>
-              <th>المورد</th>
-              <th>التاريخ</th>
-              <th>الإجمالي</th>
-            </tr>
-          </thead>
-          <tbody id="invoice-tbody">
-            <!-- Invoice rows will be rendered here -->
-          </tbody>
-        </table>
-      </div>
+      div class=modern-table-container
+        table
+          thead
+            tr
+              thرقم الفاتورةth
+              thالموردth
+              thالتاريخth
+              thالإجماليth
+            tr
+          thead
+          tbody id=invoice-tbody
+            tr
+              td colspan=4 class=text-center py-12 text-slate-400
+                div class=flex flex-col items-center gap-4
+                  svg class=w-12 h-12 text-slate-600 fill=none stroke=currentColor viewBox=0 0 24 24
+                    path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zpath
+                  svg
+                  div
+                    p class=font-semibold mb-1لا توجد فواتير بعدp
+                    p class=text-smابدأ بإضافة أول فاتورةp
+                  div
+                  a href=add.html class=modern-btn infoإضافة فاتورة جديدةa
+                div
+              td
+            tr
+          tbody
+        table
+      div
       
-      <div class="mt-6 text-center">
-        <a href="view.html" class="view-all-link">
-          <span>عرض جميع الفواتير</span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-          </svg>
-        </a>
-      </div>
-    </section>
-  </main>
+      div class=mt-6 text-center
+        a href=view.html class=view-all-link
+          spanعرض جميع الفواتيرspan
+          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
+            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 5l7 7-7 7path
+          svg
+        a
+      div
+    section
+  main
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- دوال مساعدة ---
-        const formatCurrency = num => !num ? '0 ر.س' : new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(num);
-
-        // --- دالة عداد الأرقام المتحرك ---
-        function animateNumber(element, targetValue, suffix = '') {
-            const startValue = 0;
-            const duration = 1200; // 1.2 ثانية
-            const startTime = Date.now();
-
-            function updateNumber() {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const currentValue = Math.floor(startValue + (targetValue - startValue) * progress);
-                element.textContent = currentValue.toLocaleString() + suffix;
-
-                if (progress < 1) {
-                    requestAnimationFrame(updateNumber);
-                } else {
-                    element.textContent = targetValue.toLocaleString() + suffix; // تأكد من القيمة النهائية
-                }
-            }
-            updateNumber();
-        }
-
-        // --- دالة عرض لوحة المعلومات ---
-        async function renderDashboard() {
-            try {
-                // جلب الإحصائيات من الخادم
-                const statsRes = await fetch('/api/stats');
-                if (!statsRes.ok) throw new Error('فشل جلب الإحصائيات');
-                const statsData = await statsRes.json();
-                const stats = statsData.data;
-
-                // جلب الموردين من الخادم
-                const suppliersRes = await fetch('/api/suppliers');
-                if (!suppliersRes.ok) throw new Error('فشل جلب الموردين');
-                const suppliersData = await suppliersRes.json();
-                const allSuppliers = suppliersData.data;
-
-                // تحديث بطاقات الإحصائيات (KPIs)
-                animateNumber(document.getElementById('supplierCount'), stats.suppliers);
-                animateNumber(document.getElementById('unpaidCount'), stats.invoices);
-                animateNumber(document.getElementById('openOrdersCount'), stats.purchaseOrders);
-                document.getElementById('outstandingSum').textContent = formatCurrency(stats.outstandingAmount);
-
-                // عرض آخر 3 موردين نشاطًا
-                const supplierGrid = document.getElementById('supplier-container');
-                supplierGrid.innerHTML = '';
-                
-                const sortedSuppliers = allSuppliers.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 3);
-                
-                if (sortedSuppliers.length === 0) {
-                    supplierGrid.innerHTML = `<p class="col-span-full text-center text-slate-400">لا يوجد موردون بعد. ابدأ بإضافة فاتورة.</p>`;
-                } else {
-                    sortedSuppliers.forEach((supplier, index) => {
-                        const card = document.createElement('div');
-                        card.className = 'supplier-card slide-right';
-                        card.style.animationDelay = `${index * 0.1}s`;
-                        card.innerHTML = `
-                          <div class="supplier-icon">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
-                          </div>
-                          <h4 class="text-lg font-bold text-slate-200 mb-2 break-words">${supplier.name}</h4>
-                          <div class="space-y-2 text-sm text-slate-400 mb-4">
-                            <div class="flex justify-between"><span>الفواتير:</span><span class="text-slate-300 font-semibold">${supplier.totalInvoices || 0}</span></div>
-                            <div class="flex justify-between"><span>الإجمالي:</span><span class="text-slate-300 font-semibold">${formatCurrency(supplier.totalAmount)}</span></div>
-                            <div class="flex justify-between"><span>المستحق:</span><span class="text-yellow-400 font-semibold">${formatCurrency(supplier.outstandingAmount)}</span></div>
-                          </div>
-                          <a href="view.html?supplier=${encodeURIComponent(supplier.name)}" class="modern-btn success w-full text-center justify-center mt-4">عرض التفاصيل</a>
-                        `;
-                        supplierGrid.appendChild(card);
-                    });
-                }
-                
-                // عرض أحدث 5 فواتير (هذه تتطلب API خاص بها أو فلترة من قائمة شاملة)
-                // كحل مؤقت، سنتركها فارغة حتى يتم بناء API مخصص لها
-                const tbody = document.getElementById('invoice-tbody');
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-400">جاري تطوير قسم أحدث الفواتير...</td></tr>`;
-
-            } catch (error) {
-                console.error("فشل في عرض لوحة المعلومات:", error);
-                document.querySelector('main').innerHTML = `<div class="glass-card text-center text-red-400"><h2>خطأ في الاتصال بالخادم</h2><p>${error.message}</p></div>`;
-            }
-        }
-
-        // --- البحث ---
-        document.getElementById('invoiceSearch').addEventListener('input', e => {
-            const term = e.target.value.toLowerCase();
-            document.querySelectorAll('#invoice-tbody tr').forEach(row => {
-                const isVisible = row.textContent.toLowerCase().includes(term);
-                row.style.display = isVisible ? '' : 'none';
-            });
-        });
-
-        // --- بدء التشغيل ---
-        renderDashboard();
-    });
-</script>
-</body>
-</html>
+  !-- ربط ملف JavaScript --
+  script src=jsapp.jsscript
+body
+html
