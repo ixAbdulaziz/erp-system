@@ -1,3 +1,5 @@
+// ملف add.js - إضافة فواتير جديدة مع الاتصال بالخادم
+
 // Initialize elements
 const elements = {
   file: document.getElementById('pdfFile'),
@@ -28,14 +30,13 @@ async function loadSuppliers() {
     if (response.ok) {
       const data = await response.json();
       suppliers = data.suppliers || [];
+      console.log('تم تحميل الموردين من الخادم:', suppliers.length);
     } else {
-      console.warn('Failed to load suppliers from API');
-      // Fallback: empty array, user can type new supplier names
+      console.warn('فشل في تحميل الموردين من API');
       suppliers = [];
     }
   } catch (error) {
-    console.error('Error loading suppliers:', error);
-    // Fallback: empty array, user can type new supplier names
+    console.error('خطأ في تحميل الموردين:', error);
     suppliers = [];
   }
 }
@@ -523,8 +524,8 @@ elements.analyzeBtn.addEventListener('click', async () => {
   }
 });
 
-// Form submission handler
-elements.form.addEventListener('submit', function(e) {
+// Form submission handler - محدث للاتصال بالخادم
+elements.form.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const file = elements.file.files[0];
@@ -538,12 +539,11 @@ elements.form.addEventListener('submit', function(e) {
   
   // Convert file to base64
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     const supplierName = elements.supplierInput.value.trim();
     const fileData = e.target.result;
     
     const invoice = {
-      id: Date.now().toString(),
       supplier: supplierName,
       type: document.getElementById('type').value.trim(),
       category: document.getElementById('category').value.trim(),
@@ -556,18 +556,33 @@ elements.form.addEventListener('submit', function(e) {
       fileData: fileData,
       fileType: file.type,
       fileName: file.name,
-      fileSize: file.size,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      fileSize: file.size
     };
     
-    // Here you would send the invoice data to your backend API
-    // For now, we'll just simulate a successful save
-    setTimeout(() => {
+    try {
+      // إرسال البيانات إلى الخادم
+      const response = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoice)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'خطأ في حفظ الفاتورة');
+      }
+      
+      const result = await response.json();
+      
       setButtonLoading(elements.saveBtn, false);
       setButtonSuccess(elements.saveBtn, 'تم الحفظ بنجاح', 'حفظ الفاتورة', 1200);
       
       showNotification('تم حفظ الفاتورة بنجاح', 'success');
+      
+      // إعادة تحميل قائمة الموردين
+      await loadSuppliers();
       
       // Reset form after successful save
       setTimeout(() => {
@@ -587,7 +602,12 @@ elements.form.addEventListener('submit', function(e) {
         elements.supplierContainer.classList.remove('selected');
         selectedSupplier = null;
       }, 1200);
-    }, 1000);
+      
+    } catch (error) {
+      setButtonLoading(elements.saveBtn, false);
+      console.error('خطأ في حفظ الفاتورة:', error);
+      showNotification(error.message || 'حدث خطأ في حفظ الفاتورة', 'error');
+    }
   };
   
   reader.onerror = function() {
