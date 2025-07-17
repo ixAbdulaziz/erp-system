@@ -1,209 +1,209 @@
-!DOCTYPE html
-html lang=ar dir=rtl class=dark
-head
-  meta charset=UTF-8
-  meta name=viewport content=width=device-width, initial-scale=1.0
-  titleلوحة إدارة المشترياتtitle
-  !-- ربط ملف CSS --
-  link rel=stylesheet href=cssstyles.css
-  !-- ربط خطوط جوجل --
-  link href=httpsfonts.googleapis.comcss2family=Tajawalwght@300;400;500;600;700&display=swap rel=stylesheet
-  !-- Tailwind CSS --
-  script src=httpscdn.tailwindcss.complugins=formsscript
-head
-body class=flex bg-gray-900 text-gray-100 min-h-screen
-  !-- Sidebar --
-  aside class=sidebar w-64 flex flex-col p-8 hidden mdblock
-    div class=text-center mb-12
-      h1 class=text-3xl font-bold bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 bg-clip-text text-transparentالمشترياتh1
-      div class=w-20 h-1 bg-gradient-to-r from-slate-500 to-slate-400 mx-auto mt-3 rounded-fulldiv
-    div
-    nav class=space-y-4 flex-1
-      a href=home.html class=nav-link active block py-4 px-6
-        span class=relative z-10 flex items-center gap-3
-          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2zpath
-          svg
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة إدارة المشتريات</title>
+  <!-- ربط ملف CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- ربط خطوط جوجل -->
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+</head>
+<body class="flex bg-gray-900 text-gray-100 min-h-screen">
+  <!-- Sidebar -->
+  <aside class="sidebar w-64 flex flex-col p-8 hidden md:block">
+    <div class="text-center mb-12">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-400 via-slate-300 to-slate-500 bg-clip-text text-transparent">المشتريات</h1>
+      <div class="w-20 h-1 bg-gradient-to-r from-slate-500 to-slate-400 mx-auto mt-3 rounded-full"></div>
+    </div>
+    <nav class="space-y-4 flex-1">
+      <a href="home.html" class="nav-link active block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+          </svg>
           لوحة المعلومات
-        span
-      a
-      a href=add.html class=nav-link block py-4 px-6
-        span class=relative z-10 flex items-center gap-3
-          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 6v6m0 0v6m0-6h6m-6 0H6path
-          svg
+        </span>
+      </a>
+      <a href="add.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
           إضافة فاتورة
-        span
-      a
-      a href=view.html class=nav-link block py-4 px-6
-        span class=relative z-10 flex items-center gap-3
-          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zpath
-          svg
+        </span>
+      </a>
+      <a href="view.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
           عرض الفواتير
-        span
-      a
-      a href=purchase-orders.html class=nav-link block py-4 px-6
-        span class=relative z-10 flex items-center gap-3
-          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01path
-          svg
+        </span>
+      </a>
+      <a href="purchase-orders.html" class="nav-link block py-4 px-6">
+        <span class="relative z-10 flex items-center gap-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+          </svg>
           أوامر الشراء
-        span
-      a
-    nav
-  aside
+        </span>
+      </a>
+    </nav>
+  </aside>
 
-  !-- Main Content --
-  main class=flex-1 p-8 space-y-8
-    !-- Page Header --
-    section class=page-header fade-up
-      div class=flex items-center justify-between flex-wrap gap-4
-        div
-          h2 class=text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2لوحة إدارة المشترياتh2
-          p class=text-slate-400 text-baseنظرة عامة على حالة المشتريات والفواتيرp
-        div
-        div class=hidden mdblock relative
-          div class=w-16 h-16 header-icon rounded-2xl flex items-center justify-center
-            svg class=w-8 h-8 text-white fill=none stroke=currentColor viewBox=0 0 24 24
-              path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2zpath
-            svg
-          div
-        div
-      div
-    section
+  <!-- Main Content -->
+  <main class="flex-1 p-8 space-y-8">
+    <!-- Page Header -->
+    <section class="page-header fade-up">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 class="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2">لوحة إدارة المشتريات</h2>
+          <p class="text-slate-400 text-base">نظرة عامة على حالة المشتريات والفواتير</p>
+        </div>
+        <div class="hidden md:block relative">
+          <div class="w-16 h-16 header-icon rounded-2xl flex items-center justify-center">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    !-- KPI Cards --
-    section class=grid gap-6 grid-cols-1 smgrid-cols-2 lggrid-cols-4 fade-up style=animation-delay 0.1s;
-      div class=kpi-card suppliers
-        div class=kpi-icon suppliers
-          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0zpath
-          svg
-        div
-        div class=kpi-value text-yellow-3000div
-        div class=kpi-labelإجمالي الموردينdiv
-      div
+    <!-- KPI Cards -->
+    <section class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 fade-up" style="animation-delay: 0.1s;">
+      <div class="kpi-card suppliers">
+        <div class="kpi-icon suppliers">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+        </div>
+        <div class="kpi-value text-yellow-300">0</div>
+        <div class="kpi-label">إجمالي الموردين</div>
+      </div>
 
-      div class=kpi-card unpaid
-        div class=kpi-icon unpaid
-          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0zpath
-          svg
-        div
-        div class=kpi-value text-blue-3000div
-        div class=kpi-labelإجمالي الفواتيرdiv
-      div
+      <div class="kpi-card unpaid">
+        <div class="kpi-icon unpaid">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="kpi-value text-blue-300">0</div>
+        <div class="kpi-label">إجمالي الفواتير</div>
+      </div>
 
-      div class=kpi-card orders
-        div class=kpi-icon orders
-          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138zpath
-          svg
-        div
-        div class=kpi-value text-green-3000div
-        div class=kpi-labelإجمالي أوامر الشراءdiv
-      div
+      <div class="kpi-card orders">
+        <div class="kpi-icon orders">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+          </svg>
+        </div>
+        <div class="kpi-value text-green-300">0</div>
+        <div class="kpi-label">إجمالي أوامر الشراء</div>
+      </div>
 
-      div class=kpi-card outstanding
-        div class=kpi-icon outstanding
-          svg class=w-6 h-6 text-white fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1path
-          svg
-        div
-        div class=kpi-value text-red-3000 ر.سdiv
-        div class=kpi-labelالمبالغ المستحقةdiv
-      div
-    section
+      <div class="kpi-card outstanding">
+        <div class="kpi-icon outstanding">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+          </svg>
+        </div>
+        <div class="kpi-value text-red-300">0 ر.س</div>
+        <div class="kpi-label">المبالغ المستحقة</div>
+      </div>
+    </section>
 
-    !-- Suppliers Section --
-    section class=glass-card fade-up style=animation-delay 0.2s;
-      div class=flex flex-col mdflex-row mditems-center mdjustify-between gap-4 mb-6
-        div
-          h3 class=text-2xl font-bold text-slate-200 mb-2آخر الموردينh3
-          p class=text-slate-400 text-smآخر 3 موردين تم إضافة فواتير لهمp
-        div
-      div
-      div id=supplier-container class=col-span-full text-center py-12 text-slate-400
-        div class=flex flex-col items-center gap-4
-          svg class=w-12 h-12 text-slate-600 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0zpath
-          svg
-          div
-            p class=font-semibold mb-1لا يوجد موردون بعدp
-            p class=text-smابدأ بإضافة أول فاتورةp
-          div
-          a href=add.html class=modern-btn infoإضافة فاتورة جديدةa
-        div
-      div
-    section
+    <!-- Suppliers Section -->
+    <section class="glass-card fade-up" style="animation-delay: 0.2s;">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h3 class="text-2xl font-bold text-slate-200 mb-2">آخر الموردين</h3>
+          <p class="text-slate-400 text-sm">آخر 3 موردين تم إضافة فواتير لهم</p>
+        </div>
+      </div>
+      <div id="supplier-container" class="col-span-full text-center py-12 text-slate-400">
+        <div class="flex flex-col items-center gap-4">
+          <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+          <div>
+            <p class="font-semibold mb-1">لا يوجد موردون بعد</p>
+            <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
+          </div>
+          <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
+        </div>
+      </div>
+    </section>
 
-    !-- Latest Invoices Section --
-    section class=glass-card fade-up style=animation-delay 0.3s;
-      div class=flex flex-col mdflex-row mditems-center mdjustify-between gap-4 mb-6
-        div
-          h3 class=text-2xl font-bold text-slate-200 mb-2أحدث الفواتيرh3
-          p class=text-slate-400 text-smآخر 5 فواتير تم إضافتها إلى النظامp
-        div
-        div class=flex items-center gap-4 w-full mdw-auto
-          div class=relative flex-1 mdmax-w-sm
-            div class=absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none
-              svg class=w-5 h-5 text-slate-400 fill=none stroke=currentColor viewBox=0 0 24 24
-                path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zpath
-              svg
-            div
-            input id=invoiceSearch type=text placeholder=ابحث في الفواتير... class=search-input pr-10 
-          div
-          a href=add.html class=modern-btn info whitespace-nowrap
-            svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-              path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M12 6v6m0 0v6m0-6h6m-6 0H6path
-            svg
+    <!-- Latest Invoices Section -->
+    <section class="glass-card fade-up" style="animation-delay: 0.3s;">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h3 class="text-2xl font-bold text-slate-200 mb-2">أحدث الفواتير</h3>
+          <p class="text-slate-400 text-sm">آخر 5 فواتير تم إضافتها إلى النظام</p>
+        </div>
+        <div class="flex items-center gap-4 w-full md:w-auto">
+          <div class="relative flex-1 md:max-w-sm">
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <input id="invoiceSearch" type="text" placeholder="ابحث في الفواتير..." class="search-input pr-10" />
+          </div>
+          <a href="add.html" class="modern-btn info whitespace-nowrap">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
             إضافة فاتورة
-          a
-        div
-      div
+          </a>
+        </div>
+      </div>
       
-      div class=modern-table-container
-        table
-          thead
-            tr
-              thرقم الفاتورةth
-              thالموردth
-              thالتاريخth
-              thالإجماليth
-            tr
-          thead
-          tbody id=invoice-tbody
-            tr
-              td colspan=4 class=text-center py-12 text-slate-400
-                div class=flex flex-col items-center gap-4
-                  svg class=w-12 h-12 text-slate-600 fill=none stroke=currentColor viewBox=0 0 24 24
-                    path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zpath
-                  svg
-                  div
-                    p class=font-semibold mb-1لا توجد فواتير بعدp
-                    p class=text-smابدأ بإضافة أول فاتورةp
-                  div
-                  a href=add.html class=modern-btn infoإضافة فاتورة جديدةa
-                div
-              td
-            tr
-          tbody
-        table
-      div
+      <div class="modern-table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الفاتورة</th>
+              <th>المورد</th>
+              <th>التاريخ</th>
+              <th>الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-tbody">
+            <tr>
+              <td colspan="4" class="text-center py-12 text-slate-400">
+                <div class="flex flex-col items-center gap-4">
+                  <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                  <div>
+                    <p class="font-semibold mb-1">لا توجد فواتير بعد</p>
+                    <p class="text-sm">ابدأ بإضافة أول فاتورة</p>
+                  </div>
+                  <a href="add.html" class="modern-btn info">إضافة فاتورة جديدة</a>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       
-      div class=mt-6 text-center
-        a href=view.html class=view-all-link
-          spanعرض جميع الفواتيرspan
-          svg class=w-5 h-5 fill=none stroke=currentColor viewBox=0 0 24 24
-            path stroke-linecap=round stroke-linejoin=round stroke-width=2 d=M9 5l7 7-7 7path
-          svg
-        a
-      div
-    section
-  main
+      <div class="mt-6 text-center">
+        <a href="view.html" class="view-all-link">
+          <span>عرض جميع الفواتير</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </a>
+      </div>
+    </section>
+  </main>
 
-  !-- ربط ملف JavaScript --
-  script src=jsapp.jsscript
-body
-html
+  <!-- ربط ملف JavaScript -->
+  <script src="js/app.js"></script>
+</body>
+</html>
