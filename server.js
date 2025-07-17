@@ -1,83 +1,104 @@
-// server.js (النسخة المحدثة)
-
 const express = require('express');
-const path = require('path');
+const mysql = require('mysql2');
+const bodyParser = require('body-parser');
 const cors = require('cors');
-
-// استيراد جميع الموديلات
-const invoiceModel = require('./models/invoice.model.js');
-const purchaseOrderModel = require('./models/purchase.order.model.js');
-const paymentModel = require('./models/payment.model.js');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// الإعدادات الوسيطة (Middleware)
+// إعداد الوسطاء (Middleware)
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public')); // مجلد للملفات الثابتة (HTML, CSS, JS)
 
-// --- روابط الـ API (نقاط النهاية) ---
-
-// -- روابط الفواتير --
-app.get('/api/invoices', async (req, res) => {
-  try {
-    const invoices = await invoiceModel.getAllInvoices();
-    res.json(invoices);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch invoices' });
-  }
+// إعداد قاعدة البيانات
+const db = mysql.createConnection({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'my_system'
 });
 
-app.post('/api/invoices', async (req, res) => {
-  try {
-    const newInvoice = await invoiceModel.createInvoice(req.body);
-    res.status(201).json(newInvoice);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to add invoice' });
+// اختبار الاتصال بقاعدة البيانات
+db.connect((err) => {
+  if (err) {
+    console.error('خطأ في الاتصال بقاعدة البيانات:', err);
+    return;
   }
+  console.log('تم الاتصال بقاعدة البيانات بنجاح');
 });
 
-// -- روابط أوامر الشراء --
-app.get('/api/purchase-orders', async (req, res) => {
-  try {
-    const purchaseOrders = await purchaseOrderModel.getAllPurchaseOrders();
-    res.json(purchaseOrders);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch purchase orders' });
-  }
+// الصفحة الرئيسية
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.post('/api/purchase-orders', async (req, res) => {
-  try {
-    const newPurchaseOrder = await purchaseOrderModel.createPurchaseOrder(req.body);
-    res.status(201).json(newPurchaseOrder);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to add purchase order' });
-  }
+// API endpoints
+
+// جلب جميع البيانات
+app.get('/api/data', (req, res) => {
+  const query = 'SELECT * FROM users'; // غير اسم الجدول حسب نظامك
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('خطأ في جلب البيانات:', err);
+      res.status(500).json({ error: 'خطأ في جلب البيانات' });
+      return;
+    }
+    res.json(results);
+  });
 });
 
-// -- روابط المدفوعات --
-app.get('/api/payments', async (req, res) => {
-  try {
-    const payments = await paymentModel.getAllPayments();
-    res.json(payments);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch payments' });
-  }
+// إضافة بيانات جديدة
+app.post('/api/data', (req, res) => {
+  const { name, email } = req.body; // غير الحقول حسب نظامك
+  const query = 'INSERT INTO users (name, email) VALUES (?, ?)';
+  
+  db.query(query, [name, email], (err, result) => {
+    if (err) {
+      console.error('خطأ في إضافة البيانات:', err);
+      res.status(500).json({ error: 'خطأ في إضافة البيانات' });
+      return;
+    }
+    res.json({ message: 'تم إضافة البيانات بنجاح', id: result.insertId });
+  });
 });
 
-app.post('/api/payments', async (req, res) => {
-  try {
-    const newPayment = await paymentModel.createPayment(req.body);
-    res.status(201).json(newPayment);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to add payment' });
-  }
+// تحديث البيانات
+app.put('/api/data/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, email } = req.body;
+  const query = 'UPDATE users SET name = ?, email = ? WHERE id = ?';
+  
+  db.query(query, [name, email, id], (err, result) => {
+    if (err) {
+      console.error('خطأ في تحديث البيانات:', err);
+      res.status(500).json({ error: 'خطأ في تحديث البيانات' });
+      return;
+    }
+    res.json({ message: 'تم تحديث البيانات بنجاح' });
+  });
 });
 
+// حذف البيانات
+app.delete('/api/data/:id', (req, res) => {
+  const { id } = req.params;
+  const query = 'DELETE FROM users WHERE id = ?';
+  
+  db.query(query, [id], (err, result) => {
+    if (err) {
+      console.error('خطأ في حذف البيانات:', err);
+      res.status(500.json({ error: 'خطأ في حذف البيانات' });
+      return;
+    }
+    res.json({ message: 'تم حذف البيانات بنجاح' });
+  });
+});
 
-// تشغيل الخادم
+// بدء الخادم
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`الخادم يعمل على المنفذ ${PORT}`);
 });
