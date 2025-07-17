@@ -1612,84 +1612,87 @@
       }
     });
 
-    // Enhanced Save Invoice with file handling
-    function saveInvoice() {
-      const file = elements.file.files[0];
-      
-      if (!file) {
-        showNotification('يرجى اختيار ملف PDF أو صورة', 'warning');
-        return;
-      }
-      
-      setButtonLoading(elements.saveBtn, true, 'جاري حفظ الفاتورة...');
-      
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const supplierName = elements.supplierInput.value.trim();
-        const fileData = e.target.result;
-        
-        const invoice = {
-          id: Date.now().toString(),
-          supplier: supplierName,
-          type: document.getElementById('type').value.trim(),
-          category: document.getElementById('category').value.trim(),
-          invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
-          date: document.getElementById('date').value,
-          amountBeforeTax: parseFloat(document.getElementById('amountBeforeTax').value.replace(/,/g,'')) || 0,
-          taxAmount: parseFloat(document.getElementById('taxAmount').value.replace(/,/g,'')) || 0,
-          totalAmount: parseFloat(document.getElementById('totalAmount').value.replace(/,/g,'')) || 0,
-          notes: document.getElementById('notes').value.trim(),
-          fileData: fileData,
-          fileType: file.type,
-          fileName: file.name,
-          fileSize: file.size,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-        invoices.push(invoice);
-        localStorage.setItem('invoices', JSON.stringify(invoices));
-        
-        // Update suppliers list
-        if (supplierName && !suppliers.includes(supplierName)) {
-          suppliers.push(supplierName);
-          suppliers.sort();
-          console.log(`تم إضافة مورد جديد: ${supplierName}`);
-        }
-        
-        setButtonLoading(elements.saveBtn, false);
-        setButtonSuccess(elements.saveBtn, 'تم الحفظ بنجاح', 'حفظ الفاتورة', 1200);
-        
-        showNotification('تم حفظ الفاتورة بنجاح', 'success');
-        
-        setTimeout(() => {
-          window.location.href = 'view.html';
-        }, 1200);
-      };
-      
-      reader.onerror = function() {
-        setButtonLoading(elements.saveBtn, false);
-        showNotification('حدث خطأ في قراءة الملف', 'error');
-      };
-      
-      reader.readAsDataURL(file);
-    }
+    // استبدل الدالة القديمة بهذه الدالة الجديدة
+function saveInvoice() {
+  const fileInput = document.getElementById('pdfFile');
+  const file = fileInput.files[0];
 
-    // Auto-format numbers
-    ['amountBeforeTax', 'taxAmount', 'totalAmount'].forEach(id => {
-      const input = document.getElementById(id);
-      input.addEventListener('blur', function() {
-        const value = parseFloat(this.value.replace(/,/g, ''));
-        if (!isNaN(value)) {
-          this.value = formatNumber(value);
-          this.style.animation = 'gentlePulse 0.4s ease-out';
-          setTimeout(() => this.style.animation = '', 400);
-        }
+  // التحقق من وجود الحقول المطلوبة
+  const supplier = document.getElementById('supplier').value.trim();
+  const invoiceNumber = document.getElementById('invoiceNumber').value.trim();
+  const date = document.getElementById('date').value;
+  const totalAmount = parseFloat(document.getElementById('totalAmount').value.replace(/,/g, ''));
+
+  if (!supplier || !invoiceNumber || !date || isNaN(totalAmount)) {
+    // استخدمنا showNotification الموجودة لديك بالفعل
+    showNotification('يرجى ملء جميع الحقول المطلوبة: المورد، رقم الفاتورة، التاريخ، والإجمالي', 'warning');
+    return; // إيقاف التنفيذ
+  }
+
+  const invoiceData = {
+    supplier: supplier,
+    type: document.getElementById('type').value.trim(),
+    category: document.getElementById('category').value.trim(),
+    invoice_number: invoiceNumber,
+    invoice_date: date,
+    amount_before_tax: parseFloat(document.getElementById('amountBeforeTax').value.replace(/,/g, '')) || 0,
+    tax_amount: parseFloat(document.getElementById('taxAmount').value.replace(/,/g, '')) || 0,
+    total_amount: totalAmount,
+    notes: document.getElementById('notes').value.trim(),
+    file_name: file ? file.name : null,
+    file_data: null // سنقوم بملئها لاحقًا
+  };
+
+  // دالة لإرسال البيانات إلى الخادم
+  const sendDataToServer = async (data) => {
+    // تفعيل زر الحفظ وإظهار التحميل
+    const saveBtn = document.getElementById('saveBtn');
+    setButtonLoading(saveBtn, true, 'جاري الحفظ...');
+
+    try {
+      const response = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       });
-    });
 
+      if (!response.ok) {
+        throw new Error('فشل الاتصال بالخادم');
+      }
+
+      // نجاح!
+      setButtonSuccess(saveBtn, 'تم الحفظ بنجاح', 'حفظ الفاتورة', 1200);
+      showNotification('تم حفظ الفاتورة بنجاح في قاعدة البيانات', 'success');
+
+      setTimeout(() => {
+        window.location.href = 'view.html'; // توجيه المستخدم لصفحة عرض الفواتير
+      }, 1200);
+
+    } catch (error) {
+      console.error('Error:', error);
+      showNotification('حدث خطأ أثناء حفظ الفاتورة', 'error');
+      // إعادة الزر لوضعه الطبيعي عند الفشل
+      setButtonLoading(document.getElementById('saveBtn'), false);
+    }
+  };
+
+  // التحقق إذا كان هناك ملف مرفق
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      invoiceData.file_data = e.target.result; // إضافة بيانات الملف (base64)
+      sendDataToServer(invoiceData); // إرسال البيانات بعد قراءة الملف
+    };
+    reader.onerror = function() {
+      showNotification('حدث خطأ في قراءة الملف', 'error');
+    };
+    reader.readAsDataURL(file); // بدء قراءة الملف
+  } else {
+    sendDataToServer(invoiceData); // إرسال البيانات مباشرة بدون ملف
+  }
+}
     // Enhanced notification system
     function showNotification(message, type = 'info') {
       const notification = document.createElement('div');
