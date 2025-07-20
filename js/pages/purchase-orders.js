@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Data arrays - to be populated from external API or data source
+  // Data arrays - to be populated from API
   let purchaseOrders = [];
   let invoices = [];
   let filteredPOs = [];
@@ -44,26 +44,70 @@ document.addEventListener('DOMContentLoaded', () => {
     closePdfBtn: document.getElementById('close-pdf-btn')
   };
   
-  // Load suppliers from existing data
-  function loadSuppliers() {
-    // Get unique suppliers from invoices and purchase orders
-    const invoiceSuppliers = invoices.map(inv => inv.supplier?.trim()).filter(Boolean);
-    const poSuppliers = purchaseOrders.map(po => po.supplier?.trim()).filter(Boolean);
-    
-    suppliers = [...new Set([...invoiceSuppliers, ...poSuppliers])].sort();
+  // API Functions
+  async function fetchData() {
+    try {
+      // جلب أوامر الشراء
+      const poResponse = await fetch('/api/purchase-orders');
+      const poData = await poResponse.json();
+      purchaseOrders = poData.map(po => ({
+        ...po,
+        pdfFile: po.pdfData ? {
+          name: po.pdfName,
+          size: po.pdfSize,
+          dataUrl: `data:application/pdf;base64,${po.pdfData}`
+        } : null
+      }));
+      
+      // جلب الفواتير
+      const invoiceResponse = await fetch('/api/invoices');
+      invoices = await invoiceResponse.json();
+      
+      // جلب قائمة الموردين
+      const supplierResponse = await fetch('/api/suppliers');
+      const supplierData = await supplierResponse.json();
+      suppliers = supplierData.suppliers || [];
+      
+      filteredPOs = [...purchaseOrders];
+      renderPurchaseOrders();
+    } catch (error) {
+      console.error('خطأ في جلب البيانات:', error);
+      showNotification('خطأ في جلب البيانات من الخادم', 'error');
+    }
   }
   
-  // Fuzzy search function
+  // Show notification
+  function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+  
+  // Load suppliers from API
+  async function loadSuppliers() {
+    try {
+      const response = await fetch('/api/suppliers');
+      const data = await response.json();
+      suppliers = data.suppliers || [];
+    } catch (error) {
+      console.error('خطأ في جلب الموردين:', error);
+    }
+  }
+  
+  // Fuzzy search function (unchanged)
   function fuzzySearch(query, text) {
     const queryLower = query.toLowerCase();
     const textLower = text.toLowerCase();
     
-    // Direct match
     if (textLower.includes(queryLower)) {
       return { score: 100, match: true };
     }
     
-    // Character-by-character matching
     let score = 0;
     let queryIndex = 0;
     
@@ -74,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
-    // Bonus for matching at word boundaries
     const words = textLower.split(/\s+/);
     for (const word of words) {
       if (word.startsWith(queryLower)) {
@@ -89,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
   
-  // Search suppliers
+  // Search suppliers (unchanged)
   function searchSuppliers(query) {
     if (query.length < 2) return [];
     
@@ -109,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return results;
   }
   
-  // Highlight matching text
+  // Highlight matching text (unchanged)
   function highlightMatch(text, query) {
     if (!query) return text;
     
@@ -117,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return text.replace(regex, '<span class="autocomplete-match">$1</span>');
   }
   
-  // Show suggestions
+  // Show suggestions (unchanged)
   function showSuggestions(suggestions) {
     const container = elements.poSupplierSuggestions;
     
@@ -173,14 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
     hideSuggestions();
     hideWarning();
     
-    // Add success animation
     elements.poSupplier.style.animation = 'peacefulSuccess 0.6s ease-out';
     setTimeout(() => {
       elements.poSupplier.style.animation = '';
     }, 600);
   }
   
-  // Handle keyboard navigation
+  // Handle keyboard navigation (unchanged)
   function handleKeyboardNavigation(e) {
     const items = elements.poSupplierSuggestions.querySelectorAll('.autocomplete-item');
     
@@ -203,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Update highlight
+  // Update highlight (unchanged)
   function updateHighlight(items) {
     items.forEach((item, index) => {
       if (index === highlightedIndex) {
@@ -215,10 +257,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Initialize autocomplete
+  // Initialize autocomplete (unchanged)
   function initAutocomplete() {
-    loadSuppliers();
-    
     // Input event handler
     elements.poSupplier.addEventListener('input', (e) => {
       const query = e.target.value.trim();
@@ -235,11 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      // Show loading state
       elements.poSupplierSuggestions.innerHTML = '<div class="autocomplete-loading">جاري البحث...</div>';
       elements.poSupplierSuggestions.classList.add('show');
       
-      // Debounce search
       searchTimeout = setTimeout(() => {
         const suggestions = searchSuppliers(query);
         showSuggestions(suggestions);
@@ -286,15 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Generate unique ID for purchase orders
-  function generatePOId() {
-    const lastPO = purchaseOrders.reduce((max, po) => {
-      const num = parseInt(po.id.split('-')[1]);
-      return num > max ? num : max;
-    }, 0);
-    return `PO-${String(lastPO + 1).padStart(3, '0')}`;
-  }
-  
   // Get invoices linked to PO
   function getLinkedInvoices(poId) {
     return invoices.filter(invoice => invoice.purchaseOrderId === poId);
@@ -305,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return invoices.filter(invoice => !invoice.purchaseOrderId);
   }
   
-  // Search invoices
+  // Search invoices (unchanged)
   function searchInvoices(searchTerm) {
     const unlinkedInvoices = getUnlinkedInvoices();
     
@@ -323,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSearchResults();
   }
   
-  // Render search results
+  // Render search results (unchanged)
   function renderSearchResults() {
     const container = elements.invoiceSearchResults;
     
@@ -355,19 +384,16 @@ document.addEventListener('DOMContentLoaded', () => {
     container.classList.remove('hidden');
   }
   
-  // Select invoice from search results
+  // Select invoice from search results (modified)
   function selectInvoice(invoiceNumber) {
-    selectedInvoice = invoiceNumber;
-    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
+    selectedInvoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
+    if (!selectedInvoice) return;
     
-    // Clear search and hide results
-    elements.invoiceSearch.value = `${invoice.invoiceNumber} - ${invoice.supplier}`;
+    elements.invoiceSearch.value = `${selectedInvoice.invoiceNumber} - ${selectedInvoice.supplier}`;
     elements.invoiceSearchResults.classList.add('hidden');
     
-    // Show invoice details
     showInvoiceDetails(invoiceNumber);
     
-    // Enable link button
     elements.linkInvoiceBtn.disabled = false;
     elements.linkInvoiceBtn.style.opacity = '1';
   }
@@ -384,14 +410,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sort purchase orders by ID (newest first)
   function sortPurchaseOrdersById(pos) {
     return pos.sort((a, b) => {
-      // استخراج الرقم التسلسلي من ID
       const idA = parseInt(a.id.split('-')[1]);
       const idB = parseInt(b.id.split('-')[1]);
-      return idB - idA; // الأحدث أولاً
+      return idB - idA;
     });
   }
   
-  // Render purchase orders
+  // Render purchase orders (modified for API data)
   function renderPurchaseOrders() {
     elements.poContainer.innerHTML = '';
     
@@ -400,12 +425,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // ترتيب أوامر الشراء بحسب الـ ID من الأحدث إلى الأقدم
     const sortedPOs = sortPurchaseOrdersById([...filteredPOs]);
     
     sortedPOs.forEach((po, index) => {
       const linkedInvoices = getLinkedInvoices(po.id);
-      const totalInvoiceAmount = linkedInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+      const totalInvoiceAmount = linkedInvoices.reduce((sum, inv) => sum + (parseFloat(inv.totalAmount) || 0), 0);
       
       const poCard = document.createElement('div');
       poCard.className = 'po-card slide-right';
@@ -489,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="stat-item">
               <div class="text-center">
                 <p class="text-sm text-slate-400">سعر الأمر</p>
-                <p class="font-bold text-blue-400 text-lg">${po.price ? po.price.toLocaleString() : '0'} ر.س</p>
+                <p class="font-bold text-blue-400 text-lg">${po.price ? parseFloat(po.price).toLocaleString() : '0'} ر.س</p>
               </div>
             </div>
             <div class="stat-item">
@@ -539,10 +563,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div class="flex justify-start items-center">
                     <span class="text-sm text-slate-400 ml-2">المورد:</span>
                     <span class="text-slate-300 text-sm font-medium">${invoice.supplier}</span>
-                    <span class="font-bold text-green-400 mr-4">${(invoice.totalAmount || 0).toLocaleString()} ر.س</span>
+                    <span class="font-bold text-green-400 mr-4">${(parseFloat(invoice.totalAmount) || 0).toLocaleString()} ر.س</span>
                   </div>
                 </div>
-                <button class="modern-btn edit mr-4" onclick="unlinkInvoice('${invoice.invoiceNumber}')" title="إلغاء الربط">
+                <button class="modern-btn edit mr-4" onclick="unlinkInvoice('${invoice.id}')" title="إلغاء الربط">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                   </svg>
@@ -557,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Filter purchase orders
+  // Filter purchase orders (unchanged)
   function filterPurchaseOrders(searchTerm) {
     if (!searchTerm.trim()) {
       filteredPOs = [...purchaseOrders];
@@ -571,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPurchaseOrders();
   }
   
-  // Show invoice details
+  // Show invoice details (unchanged)
   function showInvoiceDetails(invoiceNumber) {
     const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
     if (!invoice) return;
@@ -579,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selected-invoice-number').textContent = invoice.invoiceNumber;
     document.getElementById('selected-invoice-date').textContent = invoice.date;
     document.getElementById('selected-invoice-supplier').textContent = invoice.supplier;
-    document.getElementById('selected-invoice-amount').textContent = `${(invoice.totalAmount || 0).toLocaleString()} ر.س`;
+    document.getElementById('selected-invoice-amount').textContent = `${(parseFloat(invoice.totalAmount) || 0).toLocaleString()} ر.س`;
     
     document.getElementById('selected-invoice-details').classList.remove('hidden');
   }
@@ -626,9 +650,8 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.poSupplier.value = po.supplier;
     elements.poDescription.value = po.description;
     elements.poPrice.value = po.price;
-    elements.poPDF.value = ''; // Can't set file input value
+    elements.poPDF.value = '';
     
-    // Reset autocomplete state
     selectedSupplier = po.supplier;
     elements.poSupplierContainer.classList.add('selected');
     hideSuggestions();
@@ -643,11 +666,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     currentLinkingPO = poId;
     
-    // Update PO details in modal
     document.getElementById('selected-po-id').textContent = po.id;
     document.getElementById('selected-po-supplier').textContent = po.supplier;
     
-    // Clear previous search
     clearSearch();
     
     elements.linkInvoiceModal.classList.add('show');
@@ -674,11 +695,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   
-  window.unlinkInvoice = function(invoiceNumber) {
-    const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
-    if (invoice) {
-      delete invoice.purchaseOrderId;
-      renderPurchaseOrders();
+  window.unlinkInvoice = async function(invoiceId) {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/unlink`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        await fetchData();
+        showNotification('تم إلغاء ربط الفاتورة بنجاح');
+      } else {
+        throw new Error('فشل إلغاء الربط');
+      }
+    } catch (error) {
+      console.error('خطأ:', error);
+      showNotification('خطأ في إلغاء ربط الفاتورة', 'error');
     }
   };
   
@@ -691,7 +723,6 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.poPrice.value = '';
     elements.poPDF.value = '';
     
-    // Reset autocomplete state
     selectedSupplier = null;
     elements.poSupplierContainer.classList.remove('selected');
     hideSuggestions();
@@ -700,8 +731,8 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.poModal.classList.add('show');
   }
   
-  // Save purchase order
-  function savePurchaseOrder() {
+  // Save purchase order (modified for API)
+  async function savePurchaseOrder() {
     const supplier = elements.poSupplier.value.trim();
     const description = elements.poDescription.value.trim();
     const price = parseFloat(elements.poPrice.value);
@@ -712,42 +743,43 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    function savePO(pdfData = null) {
-      if (currentEditingPO) {
-        // Edit existing PO
-        const index = purchaseOrders.findIndex(po => po.id === currentEditingPO.id);
-        if (index !== -1) {
-          purchaseOrders[index] = {
-            ...currentEditingPO,
-            supplier,
-            description,
-            price,
-            pdfFile: pdfData || currentEditingPO.pdfFile
-          };
-        }
-      } else {
-        // Add new PO
-        const newPO = {
-          id: generatePOId(),
+    async function savePO(pdfData = null) {
+      try {
+        const data = {
           supplier,
           description,
           price,
-          createdDate: new Date().toISOString().split('T')[0],
-          status: 'active',
-          pdfFile: pdfData
+          pdfData: pdfData?.dataUrl?.split(',')[1] || null,
+          pdfName: pdfData?.name || null,
+          pdfSize: pdfData?.size || null
         };
-        purchaseOrders.push(newPO);
+        
+        let response;
+        if (currentEditingPO) {
+          response = await fetch(`/api/purchase-orders/${currentEditingPO.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        } else {
+          response = await fetch('/api/purchase-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        }
+        
+        if (response.ok) {
+          await fetchData();
+          elements.poModal.classList.remove('show');
+          showNotification(currentEditingPO ? 'تم تحديث أمر الشراء بنجاح' : 'تم إضافة أمر الشراء بنجاح');
+        } else {
+          throw new Error('فشل حفظ أمر الشراء');
+        }
+      } catch (error) {
+        console.error('خطأ:', error);
+        showNotification('خطأ في حفظ أمر الشراء', 'error');
       }
-      
-      // Update suppliers list for autocomplete
-      if (supplier && !suppliers.includes(supplier)) {
-        suppliers.push(supplier);
-        suppliers.sort();
-      }
-      
-      filteredPOs = [...purchaseOrders];
-      renderPurchaseOrders();
-      elements.poModal.classList.remove('show');
     }
     
     // Handle PDF file if uploaded
@@ -757,7 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      if (pdfFile.size > 10 * 1024 * 1024) { // 10MB limit
+      if (pdfFile.size > 10 * 1024 * 1024) {
         alert('حجم الملف كبير جداً. يرجى اختيار ملف أصغر من 10 ميجابايت');
         return;
       }
@@ -777,46 +809,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Link invoice to PO
-  function linkInvoiceToPO() {
+  // Link invoice to PO (modified for API)
+  async function linkInvoiceToPO() {
     if (!selectedInvoice || !currentLinkingPO) return;
     
-    const invoice = invoices.find(inv => inv.invoiceNumber === selectedInvoice);
-    if (invoice) {
-      invoice.purchaseOrderId = currentLinkingPO;
-      renderPurchaseOrders();
-      elements.linkInvoiceModal.classList.remove('show');
-      clearSearch();
+    try {
+      const response = await fetch(`/api/purchase-orders/${currentLinkingPO}/link-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: selectedInvoice.id })
+      });
       
-      // Show success message
-      const successMessage = document.createElement('div');
-      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
-      successMessage.textContent = `تم ربط الفاتورة ${selectedInvoice} بنجاح!`;
-      document.body.appendChild(successMessage);
-      
-      setTimeout(() => {
-        successMessage.remove();
-      }, 3000);
+      if (response.ok) {
+        await fetchData();
+        elements.linkInvoiceModal.classList.remove('show');
+        clearSearch();
+        showNotification(`تم ربط الفاتورة ${selectedInvoice.invoiceNumber} بنجاح!`);
+      } else {
+        throw new Error('فشل ربط الفاتورة');
+      }
+    } catch (error) {
+      console.error('خطأ:', error);
+      showNotification('خطأ في ربط الفاتورة', 'error');
     }
   }
   
-  // Delete purchase order
-  function deletePurchaseOrder() {
+  // Delete purchase order (modified for API)
+  async function deletePurchaseOrder() {
     if (!currentDeletingPO) return;
     
-    // Unlink all invoices from this PO
-    invoices.forEach(invoice => {
-      if (invoice.purchaseOrderId === currentDeletingPO) {
-        delete invoice.purchaseOrderId;
+    try {
+      const response = await fetch(`/api/purchase-orders/${currentDeletingPO}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        await fetchData();
+        elements.deleteModal.classList.remove('show');
+        showNotification('تم حذف أمر الشراء بنجاح');
+      } else {
+        throw new Error('فشل حذف أمر الشراء');
       }
-    });
-    
-    // Remove PO
-    purchaseOrders = purchaseOrders.filter(po => po.id !== currentDeletingPO);
-    
-    filteredPOs = [...purchaseOrders];
-    renderPurchaseOrders();
-    elements.deleteModal.classList.remove('show');
+    } catch (error) {
+      console.error('خطأ:', error);
+      showNotification('خطأ في حذف أمر الشراء', 'error');
+    }
   }
   
   // Event listeners
@@ -876,34 +913,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize
   initAutocomplete();
-  filteredPOs = [...purchaseOrders];
-  renderPurchaseOrders();
+  fetchData();
   
   // Initialize link invoice button as disabled
   elements.linkInvoiceBtn.disabled = true;
   elements.linkInvoiceBtn.style.opacity = '0.5';
-  
-  // Public API for external data loading
-  window.PurchaseOrdersApp = {
-    setPurchaseOrders: function(data) {
-      purchaseOrders = data || [];
-      filteredPOs = [...purchaseOrders];
-      renderPurchaseOrders();
-      loadSuppliers();
-    },
-    
-    setInvoices: function(data) {
-      invoices = data || [];
-      loadSuppliers();
-      renderPurchaseOrders();
-    },
-    
-    getPurchaseOrders: function() {
-      return purchaseOrders;
-    },
-    
-    getInvoices: function() {
-      return invoices;
-    }
-  };
 });
