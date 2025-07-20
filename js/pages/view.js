@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   try {
-    // Global Variables - No localStorage
+    // Global Variables
     let invoices = [];
     let payments = [];
     let currentSupplier = '';
@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Store for file data - keeps file data in memory to avoid long HTML attributes
     let fileDataStore = {};
+
+    // API Base URL
+    const API_BASE = window.location.origin;
 
     // DOM Elements
     const elements = {
@@ -83,11 +86,241 @@ document.addEventListener('DOMContentLoaded', () => {
       fileViewerClose: document.getElementById('file-viewer-close')
     };
 
-    // File Viewer Functions
+    // =================== API Functions ===================
+    
+    // Show loading indicator
+    function showLoading(message = 'جاري التحميل...') {
+      const loader = document.createElement('div');
+      loader.id = 'global-loader';
+      loader.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+      loader.innerHTML = `
+        <div class="glass-card p-6 flex items-center gap-4">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span class="text-white">${message}</span>
+        </div>
+      `;
+      document.body.appendChild(loader);
+    }
+
+    function hideLoading() {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.remove();
+    }
+
+    // Show error message
+    function showError(message) {
+      const error = document.createElement('div');
+      error.className = 'fixed top-4 right-4 glass-card p-4 text-red-400 z-50 animate-slide-left';
+      error.innerHTML = `
+        <div class="flex items-center gap-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>${message}</span>
+        </div>
+      `;
+      document.body.appendChild(error);
+      setTimeout(() => error.remove(), 5000);
+    }
+
+    // Show success message
+    function showSuccess(message) {
+      const success = document.createElement('div');
+      success.className = 'fixed top-4 right-4 glass-card p-4 text-green-400 z-50 animate-slide-left';
+      success.innerHTML = `
+        <div class="flex items-center gap-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>${message}</span>
+        </div>
+      `;
+      document.body.appendChild(success);
+      setTimeout(() => success.remove(), 3000);
+    }
+
+    // Fetch all invoices from server
+    async function fetchInvoices() {
+      try {
+        showLoading('جاري تحميل الفواتير...');
+        const response = await fetch(`${API_BASE}/api/invoices`);
+        if (!response.ok) throw new Error('فشل في تحميل الفواتير');
+        
+        invoices = await response.json();
+        console.log('✅ تم تحميل الفواتير:', invoices.length);
+        
+        renderSuppliers();
+      } catch (error) {
+        console.error('❌ خطأ في تحميل الفواتير:', error);
+        showError('حدث خطأ في تحميل الفواتير');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Fetch payments for a supplier
+    async function fetchPayments(supplier = null) {
+      try {
+        const url = supplier ? 
+          `${API_BASE}/api/payments?supplier=${encodeURIComponent(supplier)}` : 
+          `${API_BASE}/api/payments`;
+          
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('فشل في تحميل المدفوعات');
+        
+        const data = await response.json();
+        
+        if (supplier) {
+          // Update only supplier payments
+          payments = payments.filter(p => p.supplier !== supplier);
+          payments.push(...data);
+        } else {
+          payments = data;
+        }
+        
+        console.log('✅ تم تحميل المدفوعات:', data.length);
+      } catch (error) {
+        console.error('❌ خطأ في تحميل المدفوعات:', error);
+        showError('حدث خطأ في تحميل المدفوعات');
+      }
+    }
+
+    // Save invoice to server
+    async function saveInvoiceToServer(invoice) {
+      try {
+        const response = await fetch(`${API_BASE}/api/invoices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(invoice)
+        });
+        
+        if (!response.ok) throw new Error('فشل في حفظ الفاتورة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم حفظ الفاتورة بنجاح');
+        
+        // Reload invoices
+        await fetchInvoices();
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في حفظ الفاتورة:', error);
+        showError('حدث خطأ في حفظ الفاتورة');
+        throw error;
+      }
+    }
+
+    // Update invoice on server
+    async function updateInvoiceOnServer(id, invoice) {
+      try {
+        const response = await fetch(`${API_BASE}/api/invoices/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(invoice)
+        });
+        
+        if (!response.ok) throw new Error('فشل في تحديث الفاتورة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم تحديث الفاتورة بنجاح');
+        
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في تحديث الفاتورة:', error);
+        showError('حدث خطأ في تحديث الفاتورة');
+        throw error;
+      }
+    }
+
+    // Delete invoice from server
+    async function deleteInvoiceFromServer(id) {
+      try {
+        const response = await fetch(`${API_BASE}/api/invoices/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('فشل في حذف الفاتورة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم حذف الفاتورة بنجاح');
+        
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في حذف الفاتورة:', error);
+        showError('حدث خطأ في حذف الفاتورة');
+        throw error;
+      }
+    }
+
+    // Save payment to server
+    async function savePaymentToServer(payment) {
+      try {
+        const response = await fetch(`${API_BASE}/api/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payment)
+        });
+        
+        if (!response.ok) throw new Error('فشل في حفظ المدفوعة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم حفظ المدفوعة بنجاح');
+        
+        // Reload payments for current supplier
+        await fetchPayments(currentSupplier);
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في حفظ المدفوعة:', error);
+        showError('حدث خطأ في حفظ المدفوعة');
+        throw error;
+      }
+    }
+
+    // Update payment on server
+    async function updatePaymentOnServer(id, payment) {
+      try {
+        const response = await fetch(`${API_BASE}/api/payments/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payment)
+        });
+        
+        if (!response.ok) throw new Error('فشل في تحديث المدفوعة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم تحديث المدفوعة بنجاح');
+        
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في تحديث المدفوعة:', error);
+        showError('حدث خطأ في تحديث المدفوعة');
+        throw error;
+      }
+    }
+
+    // Delete payment from server
+    async function deletePaymentFromServer(id) {
+      try {
+        const response = await fetch(`${API_BASE}/api/payments/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('فشل في حذف المدفوعة');
+        
+        const result = await response.json();
+        showSuccess(result.message || 'تم حذف المدفوعة بنجاح');
+        
+        return result;
+      } catch (error) {
+        console.error('❌ خطأ في حذف المدفوعة:', error);
+        showError('حدث خطأ في حذف المدفوعة');
+        throw error;
+      }
+    }
+
+    // =================== File Viewer Functions ===================
+    
     function openFileViewer(invoiceId, fileName) {
-      const invoice = invoices.find(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
-      );
+      const invoice = invoices.find(inv => inv.id === parseInt(invoiceId));
       
       if (!invoice || !invoice.fileData) {
         showFileError('الملف غير متوفر أو تالف');
@@ -156,13 +389,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Payment Management Functions
+    // =================== Payment Management Functions ===================
+    
     function calculateSupplierStats(supplierName) {
       const supplierInvoices = invoices.filter(inv => inv.supplier === supplierName);
       const supplierPayments = payments.filter(pay => pay.supplier === supplierName);
       
-      const totalInvoices = supplierInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-      const totalPayments = supplierPayments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
+      const totalInvoices = supplierInvoices.reduce((sum, inv) => sum + (parseFloat(inv.totalAmount) || 0), 0);
+      const totalPayments = supplierPayments.reduce((sum, pay) => sum + (parseFloat(pay.amount) || 0), 0);
       const outstanding = totalInvoices - totalPayments;
       
       return {
@@ -248,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => elements.paymentAmount.focus(), 100);
     }
 
-    function savePayment() {
+    async function savePayment() {
       const amount = parseFloat(elements.paymentAmount.value);
       const date = elements.paymentDate.value;
       const notes = elements.paymentNotes.value.trim();
@@ -259,36 +493,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const newPayment = {
-        id: 'pay' + Date.now(),
         supplier: currentSupplier,
         amount: amount,
         date: date,
-        notes: notes,
-        createdAt: new Date().toISOString()
+        notes: notes
       };
       
-      payments.push(newPayment);
-      
-      elements.addPaymentModal.classList.remove('show');
-      renderPaymentsTable();
-      updatePaymentStats();
-      
-      // Show success feedback
-      const originalText = elements.savePaymentBtn.innerHTML;
-      elements.savePaymentBtn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        تم الحفظ
-      `;
-      setTimeout(() => {
-        elements.savePaymentBtn.innerHTML = originalText;
-      }, 2000);
+      try {
+        await savePaymentToServer(newPayment);
+        elements.addPaymentModal.classList.remove('show');
+        renderPaymentsTable();
+        updatePaymentStats();
+      } catch (error) {
+        console.error('Error saving payment:', error);
+      }
     }
 
     // Global payment functions
     window.editPayment = function(paymentId) {
-      const payment = payments.find(pay => pay.id === paymentId);
+      const payment = payments.find(pay => pay.id === parseInt(paymentId));
       if (!payment) return;
       
       currentEditingPayment = payment;
@@ -300,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.editPaymentModal.classList.add('show');
     };
 
-    function updatePayment() {
+    async function updatePayment() {
       if (!currentEditingPayment) return;
       
       const amount = parseFloat(elements.editPaymentAmount.value);
@@ -312,36 +535,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      const index = payments.findIndex(pay => pay.id === currentEditingPayment.id);
-      if (index !== -1) {
-        payments[index] = {
-          ...currentEditingPayment,
+      try {
+        await updatePaymentOnServer(currentEditingPayment.id, {
           amount: amount,
           date: date,
-          notes: notes,
-          updatedAt: new Date().toISOString()
-        };
+          notes: notes
+        });
         
+        await fetchPayments(currentSupplier);
         elements.editPaymentModal.classList.remove('show');
         renderPaymentsTable();
         updatePaymentStats();
-        
-        // Show success feedback
-        const originalText = elements.updatePaymentBtn.innerHTML;
-        elements.updatePaymentBtn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          تم التحديث
-        `;
-        setTimeout(() => {
-          elements.updatePaymentBtn.innerHTML = originalText;
-        }, 2000);
+      } catch (error) {
+        console.error('Error updating payment:', error);
       }
     }
 
     window.deletePayment = function(paymentId) {
-      const payment = payments.find(pay => pay.id === paymentId);
+      const payment = payments.find(pay => pay.id === parseInt(paymentId));
       if (!payment) return;
       
       currentDeletingPayment = payment;
@@ -372,17 +583,23 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.deletePaymentModal.classList.add('show');
     };
 
-    function confirmDeletePayment() {
+    async function confirmDeletePayment() {
       if (!currentDeletingPayment) return;
       
-      payments = payments.filter(pay => pay.id !== currentDeletingPayment.id);
-      
-      elements.deletePaymentModal.classList.remove('show');
-      renderPaymentsTable();
-      updatePaymentStats();
-      currentDeletingPayment = null;
+      try {
+        await deletePaymentFromServer(currentDeletingPayment.id);
+        await fetchPayments(currentSupplier);
+        elements.deletePaymentModal.classList.remove('show');
+        renderPaymentsTable();
+        updatePaymentStats();
+        currentDeletingPayment = null;
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+      }
     }
 
+    // =================== Utility Functions ===================
+    
     // Formatting utility
     function formatCurrency(amount) {
       return new Intl.NumberFormat('en-US').format(amount || 0) + ' ر.س';
@@ -498,11 +715,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Create file download link
     function createFileLink(invoice) {
-      const invoiceId = invoice.id || `${invoice.invoiceNumber}-${invoice.date}-${invoice.supplier}`;
+      const invoiceId = invoice.id;
       
-      // Handle both new fileData format and old fileURL format
       if (invoice.fileData && invoice.fileData.startsWith('data:')) {
-        // Store file data in memory to avoid long HTML attributes
         fileDataStore[invoiceId] = {
           data: invoice.fileData,
           type: invoice.fileType || 'application/pdf',
@@ -533,22 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
           </div>
         `;
-      } else if (invoice.fileURL) {
-        // Legacy support for old fileURL format
-        return `
-          <div class="pdf-actions">
-            <button class="pdf-btn view file-info" 
-                    data-info="${invoice.fileName || 'ملف قديم'}"
-                    onclick="viewLegacyFile('${invoice.fileURL}')"
-                    title="عرض الملف">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-              </svg>
-            </button>
-            <span class="text-xs text-slate-500">ملف قديم</span>
-          </div>
-        `;
       } else {
         return `
           <div class="pdf-actions">
@@ -561,34 +760,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // View file function
     window.viewFile = function(invoiceId, fileName) {
       console.log('🔍 محاولة عرض الملف:', { invoiceId, fileName });
-      
-      // Try to get file from store first
-      const fileInfo = fileDataStore[invoiceId];
-      if (fileInfo) {
-        console.log('✅ تم العثور على الملف في المخزن:', fileInfo.name);
-        openFileViewer(invoiceId, fileName || fileInfo.name);
-        return;
-      }
-      
-      // Fallback: get from invoice data directly
-      const invoice = invoices.find(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
-      );
-      
-      if (invoice && invoice.fileData) {
-        console.log('✅ تم العثور على الملف في الفاتورة مباشرة');
-        openFileViewer(invoiceId, fileName || invoice.fileName || 'ملف');
-      } else {
-        console.error('❌ لم يتم العثور على الملف');
-        alert('عذراً، لا يمكن العثور على الملف المطلوب');
-      }
+      openFileViewer(invoiceId, fileName);
     };
     
     // Download file function
     window.downloadFile = function(invoiceId) {
       console.log('⬇️ محاولة تحميل الملف:', invoiceId);
       
-      // Try to get file from store first
       let fileInfo = fileDataStore[invoiceId];
       let fileData, fileName, fileType;
       
@@ -597,10 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileName = fileInfo.name;
         fileType = fileInfo.type;
       } else {
-        // Fallback: get from invoice data directly
-        const invoice = invoices.find(inv => 
-          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
-        );
+        const invoice = invoices.find(inv => inv.id === parseInt(invoiceId));
         
         if (invoice && invoice.fileData) {
           fileData = invoice.fileData;
@@ -619,7 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       try {
-        // Create download link
         const link = document.createElement('a');
         link.href = fileData;
         link.download = fileName;
@@ -632,22 +806,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (error) {
         console.error('❌ خطأ في تحميل الملف:', error);
         alert('حدث خطأ أثناء تحميل الملف');
-      }
-    };
-    
-    // Legacy file view function
-    window.viewLegacyFile = function(fileURL) {
-      if (!fileURL) return;
-      
-      try {
-        const link = document.createElement('a');
-        link.href = fileURL;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
-      } catch (error) {
-        console.error('Cannot open legacy file:', error);
-        alert('لا يمكن فتح الملف القديم. قد يكون الملف غير متاح بعد الآن.');
       }
     };
     
@@ -667,13 +825,14 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
     
+    // =================== Render Functions ===================
+    
     // Render filtered suppliers
     function renderFilteredSuppliers() {
       elements.suppliersContainer.innerHTML = '';
       
       const suppliers = Object.keys(filteredSuppliers);
       
-      // إذا لم توجد موردين، اعرض رسالة ترحيبية
       if (suppliers.length === 0) {
         const searchTerm = elements.supplierSearch.value.trim();
         elements.suppliersContainer.innerHTML = `
@@ -914,20 +1073,18 @@ document.addEventListener('DOMContentLoaded', () => {
       let sum = 0;
       
       filteredInvoices.forEach((inv, index) => {
-        sum += inv.totalAmount;
+        sum += parseFloat(inv.totalAmount);
         const row = document.createElement('tr');
         row.style.animationDelay = `${index * 0.05}s`;
         row.className = 'fade-up';
         
-        // Create unique invoice ID if not exists
-        const invoiceId = inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`;
-        row.dataset.invoiceId = invoiceId;
+        row.dataset.invoiceId = inv.id;
         
         row.innerHTML = `
           <td class="font-semibold text-white">${inv.invoiceNumber}</td>
           <td class="text-white">${inv.date}</td>
           <td class="text-white">${inv.type}</td>
-          <td class="text-white">${inv.category}</td>
+          <td class="text-white">${inv.category || '-'}</td>
           <td class="text-white">${formatCurrency(inv.amountBeforeTax)}</td>
           <td class="text-white">${formatCurrency(inv.taxAmount)}</td>
           <td class="text-white font-bold">${formatCurrency(inv.totalAmount)}</td>
@@ -935,12 +1092,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${createFileLink(inv)}</td>
           <td>
             <div class="flex gap-1 justify-center">
-              <button class="action-btn edit" onclick="editInvoice('${invoiceId}')" title="تعديل">
+              <button class="action-btn edit" onclick="editInvoice('${inv.id}')" title="تعديل">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                 </svg>
               </button>
-              <button class="action-btn delete" onclick="deleteInvoice('${invoiceId}')" title="حذف">
+              <button class="action-btn delete" onclick="deleteInvoice('${inv.id}')" title="حذف">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
@@ -972,7 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Show invoices for specific supplier
-    function showInvoices(supplier) {
+    async function showInvoices(supplier) {
       currentSupplier = supplier;
       elements.supplierList.classList.add('hidden'); 
       elements.invoicesSection.classList.remove('hidden');
@@ -990,15 +1147,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const supplierInvoices = invoices.filter(inv => inv.supplier === supplier);
       filteredInvoices = supplierInvoices;
       renderFilteredInvoices();
+      
+      // Fetch payments for this supplier
+      await fetchPayments(supplier);
       renderPaymentsTable();
       updatePaymentStats();
     }
     
     // Edit invoice function
     window.editInvoice = function(invoiceId) {
-      const invoice = invoices.find(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
-      );
+      const invoice = invoices.find(inv => inv.id === parseInt(invoiceId));
       if (!invoice) return;
       
       currentEditingInvoice = invoice;
@@ -1007,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
       elements.editInvoiceNumber.value = invoice.invoiceNumber;
       elements.editInvoiceDate.value = invoice.date;
       elements.editInvoiceType.value = invoice.type;
-      elements.editInvoiceCategory.value = invoice.category;
+      elements.editInvoiceCategory.value = invoice.category || '';
       elements.editAmountBeforeTax.value = invoice.amountBeforeTax;
       elements.editTaxAmount.value = invoice.taxAmount;
       elements.editSupplier.value = invoice.supplier;
@@ -1036,9 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Delete invoice function
     window.deleteInvoice = function(invoiceId) {
-      const invoice = invoices.find(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === invoiceId
-      );
+      const invoice = invoices.find(inv => inv.id === parseInt(invoiceId));
       if (!invoice) return;
       
       currentDeletingInvoice = invoice;
@@ -1070,62 +1226,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Edit supplier name
     function editSupplier() {
-      elements.newSupplierName.value = currentSupplier;
-      elements.editModal.classList.add('show');
-      setTimeout(() => {
-        elements.newSupplierName.focus();
-        elements.newSupplierName.select();
-      }, 100);
-    }
-    
-    // Save supplier name
-    function saveSupplier() {
-      const newName = elements.newSupplierName.value.trim();
-      if (!newName || newName === currentSupplier) {
-        elements.editModal.classList.remove('show');
-        return;
-      }
-      
-      // Update invoices with new supplier name
-      invoices = invoices.map(inv => 
-        inv.supplier === currentSupplier ? {...inv, supplier: newName} : inv
-      );
-      
-      // Update payments with new supplier name
-      payments = payments.map(pay => 
-        pay.supplier === currentSupplier ? {...pay, supplier: newName} : pay
-      );
-      
-      currentSupplier = newName;
-      elements.supplierTitle.textContent = `فواتير ومدفوعات: ${newName}`;
-      elements.editModal.classList.remove('show');
-      
-      // Update filtered invoices with new supplier name
-      filteredInvoices = filteredInvoices.map(inv => ({...inv, supplier: newName}));
-      
-      // Refresh payment stats and table
-      updatePaymentStats();
-      renderPaymentsTable();
-      
-      // Show success feedback
-      const originalText = elements.saveSupplierBtn.innerHTML;
-      elements.saveSupplierBtn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        تم الحفظ
-      `;
-      setTimeout(() => {
-        elements.saveSupplierBtn.innerHTML = originalText;
-      }, 2000);
+      showError('تعديل اسم المورد غير متاح حالياً. يتطلب تحديث جميع الفواتير والمدفوعات المرتبطة.');
     }
     
     // Update invoice
-    function updateInvoice() {
+    async function updateInvoice() {
       if (!currentEditingInvoice) return;
       
       const updatedInvoice = {
-        ...currentEditingInvoice,
         invoiceNumber: elements.editInvoiceNumber.value,
         date: elements.editInvoiceDate.value,
         type: elements.editInvoiceType.value,
@@ -1133,28 +1241,22 @@ document.addEventListener('DOMContentLoaded', () => {
         amountBeforeTax: parseFloat(elements.editAmountBeforeTax.value),
         taxAmount: parseFloat(elements.editTaxAmount.value),
         supplier: elements.editSupplier.value,
-        notes: elements.editNotes.value.trim(),
-        totalAmount: parseFloat(elements.editAmountBeforeTax.value) + parseFloat(elements.editTaxAmount.value),
-        updatedAt: new Date().toISOString()
+        notes: elements.editNotes.value.trim()
       };
       
-      // Update invoice in array
-      const index = invoices.findIndex(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === 
-        (currentEditingInvoice.id || `${currentEditingInvoice.invoiceNumber}-${currentEditingInvoice.date}-${currentEditingInvoice.supplier}`)
-      );
-      
-      if (index !== -1) {
-        invoices[index] = updatedInvoice;
+      try {
+        await updateInvoiceOnServer(currentEditingInvoice.id, updatedInvoice);
         
-        // Refresh the view if supplier changed
+        // Reload all invoices
+        await fetchInvoices();
+        
+        // Refresh current view
         if (updatedInvoice.supplier !== currentSupplier) {
           elements.invoicesSection.classList.add('hidden');
           elements.supplierList.classList.remove('hidden');
-          elements.supplierSearch.value = ''; // Reset search
+          elements.supplierSearch.value = '';
           renderSuppliers();
         } else {
-          // Refresh current supplier view with current search and sort
           const searchTerm = elements.invoiceSearch.value;
           const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
           if (!searchTerm.trim()) {
@@ -1165,75 +1267,64 @@ document.addEventListener('DOMContentLoaded', () => {
             );
           }
           
-          // Apply current sort if any
           if (currentSort.column) {
             sortInvoices(currentSort.column, currentSort.direction);
           } else {
             renderFilteredInvoices();
           }
           
-          // Update payment stats
           updatePaymentStats();
         }
         
         elements.editInvoiceModal.classList.remove('show');
-        
-        // Show success feedback
-        const originalText = elements.updateInvoiceBtn.innerHTML;
-        elements.updateInvoiceBtn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          تم التحديث
-        `;
-        setTimeout(() => {
-          elements.updateInvoiceBtn.innerHTML = originalText;
-        }, 2000);
+      } catch (error) {
+        console.error('Error updating invoice:', error);
       }
     }
     
     // Confirm delete invoice
-    function confirmDelete() {
+    async function confirmDelete() {
       if (!currentDeletingInvoice) return;
       
-      // Remove invoice from array
-      invoices = invoices.filter(inv => 
-        (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) !== 
-        (currentDeletingInvoice.id || `${currentDeletingInvoice.invoiceNumber}-${currentDeletingInvoice.date}-${currentDeletingInvoice.supplier}`)
-      );
-      
-      // Check if supplier still has invoices
-      const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
-      if (supplierInvoices.length === 0) {
-        // Go back to suppliers list if no invoices left
-        elements.invoicesSection.classList.add('hidden');
-        elements.supplierList.classList.remove('hidden');
-        elements.supplierSearch.value = ''; // Reset search
-        renderSuppliers();
-      } else {
-        // Refresh current supplier view with current search and sort
-        const searchTerm = elements.invoiceSearch.value;
-        if (!searchTerm.trim()) {
-          filteredInvoices = supplierInvoices;
+      try {
+        await deleteInvoiceFromServer(currentDeletingInvoice.id);
+        
+        // Remove invoice from local array
+        invoices = invoices.filter(inv => inv.id !== currentDeletingInvoice.id);
+        
+        // Check if supplier still has invoices
+        const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
+        if (supplierInvoices.length === 0) {
+          // Go back to suppliers list if no invoices left
+          elements.invoicesSection.classList.add('hidden');
+          elements.supplierList.classList.remove('hidden');
+          elements.supplierSearch.value = '';
+          renderSuppliers();
         } else {
-          filteredInvoices = supplierInvoices.filter(inv => 
-            inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
-          );
+          // Refresh current supplier view
+          const searchTerm = elements.invoiceSearch.value;
+          if (!searchTerm.trim()) {
+            filteredInvoices = supplierInvoices;
+          } else {
+            filteredInvoices = supplierInvoices.filter(inv => 
+              inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          }
+          
+          if (currentSort.column) {
+            sortInvoices(currentSort.column, currentSort.direction);
+          } else {
+            renderFilteredInvoices();
+          }
+          
+          updatePaymentStats();
         }
         
-        // Apply current sort if any
-        if (currentSort.column) {
-          sortInvoices(currentSort.column, currentSort.direction);
-        } else {
-          renderFilteredInvoices();
-        }
-        
-        // Update payment stats
-        updatePaymentStats();
+        elements.deleteModal.classList.remove('show');
+        currentDeletingInvoice = null;
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
       }
-      
-      elements.deleteModal.classList.remove('show');
-      currentDeletingInvoice = null;
     }
     
     // Export to CSV
@@ -1243,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       filteredInvoices.forEach(inv => {
         const notes = (inv.notes || '').replace(/"/g, '""'); // Escape quotes
-        csvContent += `"${inv.invoiceNumber}","${inv.date}","${inv.type}","${inv.category}",${inv.amountBeforeTax},${inv.taxAmount},${inv.totalAmount},"${notes}"\n`;
+        csvContent += `"${inv.invoiceNumber}","${inv.date}","${inv.type}","${inv.category || ''}",${inv.amountBeforeTax},${inv.taxAmount},${inv.totalAmount},"${notes}"\n`;
       });
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1253,9 +1344,10 @@ document.addEventListener('DOMContentLoaded', () => {
       link.click();
     }
     
-    // Event listeners
+    // =================== Event Listeners ===================
+    
     elements.editSupplierBtn.addEventListener('click', editSupplier);
-    elements.saveSupplierBtn.addEventListener('click', saveSupplier);
+    elements.saveSupplierBtn.addEventListener('click', () => elements.editModal.classList.remove('show'));
     elements.cancelEditBtn.addEventListener('click', () => elements.editModal.classList.remove('show'));
     elements.updateInvoiceBtn.addEventListener('click', updateInvoice);
     elements.cancelEditInvoiceBtn.addEventListener('click', () => elements.editInvoiceModal.classList.remove('show'));
@@ -1265,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.backBtn.addEventListener('click', () => { 
       elements.invoicesSection.classList.add('hidden'); 
       elements.supplierList.classList.remove('hidden');
-      elements.supplierSearch.value = ''; // Reset search
+      elements.supplierSearch.value = '';
       renderSuppliers();
     });
 
@@ -1279,27 +1371,31 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.cancelDeletePaymentBtn.addEventListener('click', () => elements.deletePaymentModal.classList.remove('show'));
     
     // زر تحديث البيانات
-    document.getElementById('refresh-data-btn').addEventListener('click', () => {
+    document.getElementById('refresh-data-btn').addEventListener('click', async () => {
       console.log('🔄 إعادة تحميل البيانات...');
       
-      // إعادة تعيين البحث
-      elements.supplierSearch.value = '';
-      
-      // إعادة رندر الموردين
-      renderSuppliers();
-      
-      // إشعار المستخدم
-      const btn = document.getElementById('refresh-data-btn');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = `
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        تم التحديث
-      `;
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-      }, 2000);
+      try {
+        await fetchInvoices();
+        await fetchPayments();
+        
+        // إعادة تعيين البحث
+        elements.supplierSearch.value = '';
+        
+        // إشعار المستخدم
+        const btn = document.getElementById('refresh-data-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          تم التحديث
+        `;
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 2000);
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+      }
     });
     
     // Search event listeners
@@ -1339,9 +1435,21 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
     
-    // Initialize sort handlers and render suppliers
+    // =================== Initialization ===================
+    
+    // Initialize sort handlers and load data
     initializeSortHandlers();
-    renderSuppliers();
+    
+    // Load initial data
+    (async () => {
+      try {
+        await fetchInvoices();
+        await fetchPayments();
+        console.log('✅ تم تحميل النظام بنجاح');
+      } catch (error) {
+        console.error('❌ خطأ في تحميل البيانات الأولية:', error);
+      }
+    })();
     
     // دوال مساعدة عامة
     window.clearSearch = function() {
@@ -1349,7 +1457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filterSuppliers('');
     };
     
-    console.log('✅ تم تحميل النظام بنجاح - نسخة نظيفة بدون localStorage أو بيانات تجريبية');
+    console.log('✅ تم تحميل النظام بنجاح - نسخة متصلة بالسيرفر');
     
   } catch (error) {
     console.error('❌ خطأ في تحميل النظام:', error);
