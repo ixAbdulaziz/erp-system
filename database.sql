@@ -34,6 +34,7 @@ CREATE TABLE invoices (
     INDEX idx_date (date),
     INDEX idx_purchase_order (purchaseOrderId),
     INDEX idx_total_amount (totalAmount),
+    INDEX idx_invoice_unlinked (purchaseOrderId, invoiceNumber),
     
     -- قيود
     UNIQUE KEY unique_invoice_number (invoiceNumber, supplier),
@@ -109,6 +110,20 @@ CREATE TABLE suppliers (
     INDEX idx_name (name),
     INDEX idx_email (email)
 ) ENGINE=InnoDB COMMENT='جدول الموردين';
+
+-- =================== جدول سجل التدقيق (اختياري) ===================
+CREATE TABLE audit_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    table_name VARCHAR(50) NOT NULL COMMENT 'اسم الجدول',
+    record_id VARCHAR(50) NOT NULL COMMENT 'معرف السجل',
+    action VARCHAR(20) NOT NULL COMMENT 'نوع العملية (INSERT, UPDATE, DELETE)',
+    user VARCHAR(100) COMMENT 'المستخدم',
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'وقت العملية',
+    old_values JSON COMMENT 'القيم القديمة',
+    new_values JSON COMMENT 'القيم الجديدة',
+    INDEX idx_table_record (table_name, record_id),
+    INDEX idx_timestamp (timestamp)
+) ENGINE=InnoDB COMMENT='سجل التدقيق للتغييرات';
 
 -- =================== إنشاء المفاتيح الخارجية ===================
 
@@ -199,10 +214,35 @@ FROM purchase_orders po
 LEFT JOIN invoices i ON po.id = i.purchaseOrderId
 GROUP BY po.id;
 
+-- عرض أوامر الشراء مع الفواتير المربوطة للـ API
+CREATE VIEW purchase_orders_with_invoices AS
+SELECT 
+    po.*,
+    COUNT(i.id) as linked_invoices_count,
+    SUM(i.totalAmount) as linked_invoices_total,
+    JSON_ARRAYAGG(
+        CASE 
+            WHEN i.id IS NOT NULL THEN JSON_OBJECT(
+                'id', i.id,
+                'invoiceNumber', i.invoiceNumber,
+                'supplier', i.supplier,
+                'date', i.date,
+                'totalAmount', i.totalAmount,
+                'type', i.type,
+                'category', i.category
+            )
+            ELSE NULL
+        END
+    ) as linkedInvoices
+FROM purchase_orders po
+LEFT JOIN invoices i ON po.id = i.purchaseOrderId
+GROUP BY po.id;
+
 -- =================== إجراءات مخزنة مفيدة ===================
 
--- إجراء للحصول على إحصائيات سريعة
 DELIMITER //
+
+-- إجراء للحصول على إحصائيات سريعة
 CREATE PROCEDURE GetDashboardStats()
 BEGIN
     SELECT 
@@ -246,21 +286,71 @@ BEGIN
     ORDER BY date DESC;
 END //
 
+-- إجراء للحصول على أوامر الشراء مع الفواتير المربوطة
+CREATE PROCEDURE GetPurchaseOrdersWithInvoices()
+BEGIN
+    SELECT 
+        po.id,
+        po.supplier,
+        po.description,
+        po.price,
+        po.pdfData,
+        po.pdfName,
+        po.pdfSize,
+        po.createdDate,
+        po.status,
+        po.createdAt,
+        po.updatedAt,
+        (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'id', i.id,
+                    'invoiceNumber', i.invoiceNumber,
+                    'supplier', i.supplier,
+                    'date', i.date,
+                    'totalAmount', i.totalAmount,
+                    'type', i.type,
+                    'category', i.category
+                )
+            )
+            FROM invoices i 
+            WHERE i.purchaseOrderId = po.id
+        ) as linkedInvoices
+    FROM purchase_orders po
+    ORDER BY po.id DESC;
+END //
+
+-- إجراء للحصول على الفواتير غير المربوطة
+CREATE PROCEDURE GetUnlinkedInvoices()
+BEGIN
+    SELECT 
+        id,
+        supplier,
+        type,
+        category,
+        invoiceNumber,
+        date,
+        amountBeforeTax,
+        taxAmount,
+        totalAmount,
+        notes,
+        fileName,
+        fileType,
+        fileSize,
+        createdAt,
+        updatedAt
+    FROM invoices 
+    WHERE purchaseOrderId IS NULL
+    ORDER BY date DESC;
+END //
+
 DELIMITER ;
-
--- =================== مؤشرات الأداء ===================
-
--- تحسين البحث في الفواتير
-CREATE FULLTEXT INDEX idx_invoice_search ON invoices(invoiceNumber, supplier, type, category, notes);
-
--- مؤشر مركب للبحث السريع
-CREATE INDEX idx_supplier_date ON invoices(supplier, date);
-CREATE INDEX idx_supplier_amount ON invoices(supplier, totalAmount);
 
 -- =================== المشغلات (Triggers) ===================
 
--- مشغل لتحديث totalAmount تلقائياً
 DELIMITER //
+
+-- مشغل لتحديث totalAmount تلقائياً
 CREATE TRIGGER tr_invoice_calculate_total 
 BEFORE INSERT ON invoices
 FOR EACH ROW
@@ -275,7 +365,61 @@ BEGIN
     SET NEW.totalAmount = NEW.amountBeforeTax + NEW.taxAmount;
 END //
 
+-- مشغل لتسجيل التغييرات في أوامر الشراء
+CREATE TRIGGER tr_po_audit_update
+AFTER UPDATE ON purchase_orders
+FOR EACH ROW
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values, new_values)
+    VALUES (
+        'purchase_orders',
+        NEW.id,
+        'UPDATE',
+        JSON_OBJECT(
+            'supplier', OLD.supplier,
+            'description', OLD.description,
+            'price', OLD.price,
+            'status', OLD.status
+        ),
+        JSON_OBJECT(
+            'supplier', NEW.supplier,
+            'description', NEW.description,
+            'price', NEW.price,
+            'status', NEW.status
+        )
+    );
+END //
+
+-- مشغل لتسجيل حذف أوامر الشراء
+CREATE TRIGGER tr_po_audit_delete
+BEFORE DELETE ON purchase_orders
+FOR EACH ROW
+BEGIN
+    INSERT INTO audit_log (table_name, record_id, action, old_values)
+    VALUES (
+        'purchase_orders',
+        OLD.id,
+        'DELETE',
+        JSON_OBJECT(
+            'supplier', OLD.supplier,
+            'description', OLD.description,
+            'price', OLD.price,
+            'status', OLD.status,
+            'createdDate', OLD.createdDate
+        )
+    );
+END //
+
 DELIMITER ;
+
+-- =================== مؤشرات الأداء ===================
+
+-- تحسين البحث في الفواتير
+CREATE FULLTEXT INDEX idx_invoice_search ON invoices(invoiceNumber, supplier, type, category, notes);
+
+-- مؤشر مركب للبحث السريع
+CREATE INDEX idx_supplier_date ON invoices(supplier, date);
+CREATE INDEX idx_supplier_amount ON invoices(supplier, totalAmount);
 
 -- =================== صلاحيات المستخدمين ===================
 
@@ -284,22 +428,34 @@ DELIMITER ;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON invoice_system.* TO 'invoice_app'@'localhost';
 -- FLUSH PRIVILEGES;
 
--- =================== النسخ الاحتياطي ===================
-
--- لإنشاء نسخة احتياطية، استخدم هذا الأمر في terminal:
--- mysqldump -u root -p invoice_system > backup_invoice_system.sql
-
 -- =================== إحصائيات الأداء ===================
+
+-- تحديث إحصائيات الجداول
+ANALYZE TABLE purchase_orders;
+ANALYZE TABLE invoices;
+ANALYZE TABLE payments;
+ANALYZE TABLE suppliers;
+ANALYZE TABLE audit_log;
 
 -- عرض إحصائيات الجداول
 SELECT 
-    TABLE_NAME,
-    TABLE_ROWS,
-    ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) AS 'SIZE_MB'
+    TABLE_NAME as 'اسم الجدول',
+    TABLE_ROWS as 'عدد السجلات',
+    ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) AS 'الحجم (MB)',
+    UPDATE_TIME as 'آخر تحديث'
 FROM information_schema.TABLES 
-WHERE TABLE_SCHEMA = 'invoice_system';
+WHERE TABLE_SCHEMA = 'invoice_system'
+ORDER BY TABLE_NAME;
 
 -- عرض حالة المؤشرات
 SHOW INDEX FROM invoices;
 SHOW INDEX FROM purchase_orders;
 SHOW INDEX FROM payments;
+
+-- =================== النسخ الاحتياطي ===================
+
+-- لإنشاء نسخة احتياطية، استخدم هذا الأمر في terminal:
+-- mysqldump -u root -p invoice_system > backup_invoice_system.sql
+
+-- لاستعادة النسخة الاحتياطية:
+-- mysql -u root -p invoice_system < backup_invoice_system.sql
