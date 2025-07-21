@@ -1613,69 +1613,63 @@
     });
 
     // Enhanced Save Invoice with file handling
-    function saveInvoice() {
-      const file = elements.file.files[0];
+    async function saveInvoice() {
+  const file = elements.file.files[0];
+  
+  if (!file) {
+    showNotification('يرجى اختيار ملف PDF أو صورة', 'warning');
+    return;
+  }
+  
+  setButtonLoading(elements.saveBtn, true, 'جاري حفظ الفاتورة...');
+  
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const supplierName = elements.supplierInput.value.trim();
+    const fileData = e.target.result;
+    
+    const invoice = {
+      id: Date.now().toString(),
+      invoice_number: document.getElementById('invoiceNumber').value.trim(),
+      supplier_name: supplierName,
+      type: document.getElementById('type').value.trim(),
+      category: document.getElementById('category').value.trim(),
+      date: document.getElementById('date').value,
+      amount_before_tax: parseFloat(document.getElementById('amountBeforeTax').value.replace(/,/g,'')) || 0,
+      tax_amount: parseFloat(document.getElementById('taxAmount').value.replace(/,/g,'')) || 0,
+      total_amount: parseFloat(document.getElementById('totalAmount').value.replace(/,/g,'')) || 0,
+      notes: document.getElementById('notes').value.trim(),
+      file_data: fileData,
+      file_type: file.type,
+      file_name: file.name,
+      file_size: file.size
+    };
+    
+    try {
+      await invoicesAPI.create(invoice);
       
-      if (!file) {
-        showNotification('يرجى اختيار ملف PDF أو صورة', 'warning');
-        return;
-      }
+      setButtonLoading(elements.saveBtn, false);
+      setButtonSuccess(elements.saveBtn, 'تم الحفظ بنجاح', 'حفظ الفاتورة', 1200);
       
-      setButtonLoading(elements.saveBtn, true, 'جاري حفظ الفاتورة...');
+      showNotification('تم حفظ الفاتورة بنجاح', 'success');
       
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const supplierName = elements.supplierInput.value.trim();
-        const fileData = e.target.result;
-        
-        const invoice = {
-          id: Date.now().toString(),
-          supplier: supplierName,
-          type: document.getElementById('type').value.trim(),
-          category: document.getElementById('category').value.trim(),
-          invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
-          date: document.getElementById('date').value,
-          amountBeforeTax: parseFloat(document.getElementById('amountBeforeTax').value.replace(/,/g,'')) || 0,
-          taxAmount: parseFloat(document.getElementById('taxAmount').value.replace(/,/g,'')) || 0,
-          totalAmount: parseFloat(document.getElementById('totalAmount').value.replace(/,/g,'')) || 0,
-          notes: document.getElementById('notes').value.trim(),
-          fileData: fileData,
-          fileType: file.type,
-          fileName: file.name,
-          fileSize: file.size,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        
-        const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-        invoices.push(invoice);
-        localStorage.setItem('invoices', JSON.stringify(invoices));
-        
-        // Update suppliers list
-        if (supplierName && !suppliers.includes(supplierName)) {
-          suppliers.push(supplierName);
-          suppliers.sort();
-          console.log(`تم إضافة مورد جديد: ${supplierName}`);
-        }
-        
-        setButtonLoading(elements.saveBtn, false);
-        setButtonSuccess(elements.saveBtn, 'تم الحفظ بنجاح', 'حفظ الفاتورة', 1200);
-        
-        showNotification('تم حفظ الفاتورة بنجاح', 'success');
-        
-        setTimeout(() => {
-          window.location.href = 'view.html';
-        }, 1200);
-      };
-      
-      reader.onerror = function() {
-        setButtonLoading(elements.saveBtn, false);
-        showNotification('حدث خطأ في قراءة الملف', 'error');
-      };
-      
-      reader.readAsDataURL(file);
+      setTimeout(() => {
+        window.location.href = 'view.html';
+      }, 1200);
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+      setButtonLoading(elements.saveBtn, false);
+      showNotification('حدث خطأ في حفظ الفاتورة', 'error');
     }
+  };
+  
+  reader.onerror = function() {
+    setButtonLoading(elements.saveBtn, false);
+    showNotification('حدث خطأ في قراءة الملف', 'error');
+  };
+  
+  reader.readAsDataURL(file);
+}
 
     // Auto-format numbers
     ['amountBeforeTax', 'taxAmount', 'totalAmount'].forEach(id => {
