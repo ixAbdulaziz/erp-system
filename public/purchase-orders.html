@@ -1354,31 +1354,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Get invoices linked to PO
       function getLinkedInvoices(poId) {
-        return invoices.filter(invoice => invoice.purchaseOrderId === poId);
-      }
+  return invoices.filter(invoice => invoice.purchase_order_id === poId);
+}
       
       // Get unlinked invoices
       function getUnlinkedInvoices() {
-        return invoices.filter(invoice => !invoice.purchaseOrderId);
-      }
+  return invoices.filter(invoice => !invoice.purchase_order_id);
+}
       
       // Search invoices
       function searchInvoices(searchTerm) {
-        const unlinkedInvoices = getUnlinkedInvoices();
-        
-        if (!searchTerm.trim()) {
-          searchResults = [];
-          renderSearchResults();
-          return;
-        }
-        
-        searchResults = unlinkedInvoices.filter(invoice => 
-          invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          invoice.supplier.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        
-        renderSearchResults();
-      }
+  const unlinkedInvoices = getUnlinkedInvoices();
+  
+  if (!searchTerm.trim()) {
+    searchResults = [];
+    renderSearchResults();
+    return;
+  }
+  
+  searchResults = unlinkedInvoices.filter(invoice => 
+    invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  renderSearchResults();
+}
       
       // Render search results
       function renderSearchResults() {
@@ -1414,20 +1414,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Select invoice from search results
       function selectInvoice(invoiceNumber) {
-        selectedInvoice = invoiceNumber;
-        const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
-        
-        // Clear search and hide results
-        elements.invoiceSearch.value = `${invoice.invoiceNumber} - ${invoice.supplier}`;
-        elements.invoiceSearchResults.classList.add('hidden');
-        
-        // Show invoice details
-        showInvoiceDetails(invoiceNumber);
-        
-        // Enable link button
-        elements.linkInvoiceBtn.disabled = false;
-        elements.linkInvoiceBtn.style.opacity = '1';
-      }
+  selectedInvoice = invoiceNumber;
+  const invoice = invoices.find(inv => inv.invoice_number === invoiceNumber);
+  
+  // Clear search and hide results
+  elements.invoiceSearch.value = `${invoice.invoice_number} - ${invoice.supplier_name}`;
+  elements.invoiceSearchResults.classList.add('hidden');
+  
+  // Show invoice details
+  showInvoiceDetails(invoiceNumber);
+  
+  // Enable link button
+  elements.linkInvoiceBtn.disabled = false;
+  elements.linkInvoiceBtn.style.opacity = '1';
+}
       
       // Clear search
       function clearSearch() {
