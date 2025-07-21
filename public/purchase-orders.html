@@ -1727,14 +1727,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
       
-      window.unlinkInvoice = function(invoiceNumber) {
-        const invoice = invoices.find(inv => inv.invoiceNumber === invoiceNumber);
-        if (invoice) {
-          delete invoice.purchaseOrderId;
-          localStorage.setItem('invoices', JSON.stringify(invoices));
-          renderPurchaseOrders();
-        }
-      };
+      window.unlinkInvoice = async function(invoiceNumber) {
+  try {
+    const invoice = invoices.find(inv => inv.invoice_number === invoiceNumber);
+    if (!invoice) return;
+    
+    // إلغاء ربط الفاتورة
+    await invoicesAPI.update(invoice.id, {
+      ...invoice,
+      purchase_order_id: null
+    });
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    
+    // إظهار رسالة نجاح
+    const successMessage = document.createElement('div');
+    successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
+    successMessage.textContent = 'تم إلغاء ربط الفاتورة بنجاح!';
+    document.body.appendChild(successMessage);
+    
+    setTimeout(() => {
+      successMessage.remove();
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error unlinking invoice:', error);
+    alert('حدث خطأ في إلغاء ربط الفاتورة');
+  }
+};
       
       // Add new purchase order
       function addPurchaseOrder() {
