@@ -1859,8 +1859,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       
       // Delete purchase order
-      function deletePurchaseOrder() {
-        if (!currentDeletingPO) return;
+      async function deletePurchaseOrder() {
+  if (!currentDeletingPO) return;
+  
+  try {
+    // حذف أمر الشراء
+    await purchaseOrdersAPI.delete(currentDeletingPO);
+    
+    // إلغاء ربط الفواتير المرتبطة بهذا الأمر
+    const linkedInvoices = invoices.filter(inv => inv.purchase_order_id === currentDeletingPO);
+    
+    for (const invoice of linkedInvoices) {
+      await invoicesAPI.update(invoice.id, {
+        ...invoice,
+        purchase_order_id: null
+      });
+    }
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    elements.deleteModal.classList.remove('show');
+    
+    // إظهار رسالة نجاح
+    const successMessage = document.createElement('div');
+    successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
+    successMessage.textContent = 'تم حذف أمر الشراء بنجاح!';
+    document.body.appendChild(successMessage);
+    
+    setTimeout(() => {
+      successMessage.remove();
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error deleting purchase order:', error);
+    alert('حدث خطأ في حذف أمر الشراء');
+  }
+}
         
         // Unlink all invoices from this PO
         invoices.forEach(invoice => {
