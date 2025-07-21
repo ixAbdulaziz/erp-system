@@ -1,49 +1,30 @@
 const express = require('express');
 const mysql = require('mysql2');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
-const multer = require('multer');
+const bodyParser = require('body-parser');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// إعداد Multer لرفع الملفات
-const upload = multer({
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf' || file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('نوع الملف غير مدعوم. يرجى رفع PDF أو صورة فقط.'));
-    }
-  }
-});
-
-// إعداد الوسطاء (Middleware)
+// Middleware
 app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
-
-// خدمة الملفات الثابتة
-app.use('/css', express.static('css'));
-app.use('/js', express.static('js'));
 app.use(express.static('public'));
-app.use(express.static('.'));
 
-// إعداد قاعدة البيانات
+// إعداد اتصال قاعدة البيانات
 const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'invoice_system',
-  charset: 'utf8mb4'
+  host: process.env.MYSQLHOST || 'localhost',
+  user: process.env.MYSQLUSER || 'root',
+  password: process.env.MYSQLPASSWORD || '',
+  database: process.env.MYSQLDATABASE || 'erp_system',
+  port: process.env.MYSQLPORT || 3306
 });
 
-// اختبار الاتصال بقاعدة البيانات
+// الاتصال بقاعدة البيانات
 db.connect((err) => {
   if (err) {
     console.error('خطأ في الاتصال بقاعدة البيانات:', err);
@@ -52,556 +33,398 @@ db.connect((err) => {
   console.log('تم الاتصال بقاعدة البيانات بنجاح');
 });
 
-// =================== صفحات HTML ===================
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'home.html'));
-});
-
-app.get('/home', (req, res) => {
-  res.sendFile(path.join(__dirname, 'home.html'));
-});
-
-app.get('/add', (req, res) => {
-  res.sendFile(path.join(__dirname, 'add.html'));
-});
-
-app.get('/view', (req, res) => {
-  res.sendFile(path.join(__dirname, 'view.html'));
-});
-
-app.get('/purchase-orders', (req, res) => {
-  res.sendFile(path.join(__dirname, 'purchase-orders.html'));
-});
-
-// =================== APIs للفواتير ===================
-
-// جلب جميع الفواتير
-app.get('/api/invoices', (req, res) => {
-  const query = `
-    SELECT 
-      id,
-      supplier,
-      type,
-      category,
-      invoiceNumber,
-      date,
-      amountBeforeTax,
-      taxAmount,
-      totalAmount,
-      notes,
-      fileName,
-      fileType,
-      fileSize,
-      createdAt,
-      updatedAt
-    FROM invoices 
-    ORDER BY createdAt DESC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب الفواتير:', err);
-      res.status(500).json({ error: 'خطأ في جلب الفواتير' });
-      return;
-    }
-    
-    // تحويل البيانات للتوافق مع الواجهة الأمامية
-    const formattedResults = results.map(invoice => ({
-      ...invoice,
-      // إضافة بيانات إضافية إذا لزم الأمر
-      fileURL: invoice.fileName ? `/files/${invoice.id}` : null
-    }));
-    
-    res.json(formattedResults);
+// Convert callbacks to promises
+const dbQuery = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
   });
+};
+
+// ===== SUPPLIERS ENDPOINTS =====
+
+// الحصول على جميع الموردين
+app.get('/api/suppliers', async (req, res) => {
+  try {
+    const suppliers = await dbQuery('SELECT * FROM suppliers ORDER BY is_pinned DESC, name ASC');
+    res.json(suppliers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// جلب فاتورة واحدة مع الملف
-app.get('/api/invoices/:id', (req, res) => {
+// إضافة مورد جديد
+app.post('/api/suppliers', async (req, res) => {
+  const { name, is_pinned = false } = req.body;
+  try {
+    const result = await dbQuery('INSERT INTO suppliers (name, is_pinned) VALUES (?, ?)', [name, is_pinned]);
+    res.json({ id: result.insertId, name, is_pinned });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// تحديث مورد
+app.put('/api/suppliers/:id', async (req, res) => {
   const { id } = req.params;
-  
-  const query = 'SELECT * FROM invoices WHERE id = ?';
-  
-  db.query(query, [id], (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب الفاتورة:', err);
-      res.status(500).json({ error: 'خطأ في جلب الفاتورة' });
-      return;
+  const { name, is_pinned } = req.body;
+  try {
+    await dbQuery('UPDATE suppliers SET name = ?, is_pinned = ? WHERE id = ?', [name, is_pinned, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// تثبيت/إلغاء تثبيت مورد
+app.patch('/api/suppliers/:id/pin', async (req, res) => {
+  const { id } = req.params;
+  const { is_pinned } = req.body;
+  try {
+    await dbQuery('UPDATE suppliers SET is_pinned = ? WHERE id = ?', [is_pinned, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== INVOICES ENDPOINTS =====
+
+// الحصول على جميع الفواتير
+app.get('/api/invoices', async (req, res) => {
+  const { supplier_id } = req.query;
+  try {
+    let sql = `
+      SELECT i.*, s.name as supplier_name 
+      FROM invoices i 
+      JOIN suppliers s ON i.supplier_id = s.id
+    `;
+    const params = [];
+    
+    if (supplier_id) {
+      sql += ' WHERE i.supplier_id = ?';
+      params.push(supplier_id);
     }
     
-    if (results.length === 0) {
-      res.status(404).json({ error: 'الفاتورة غير موجودة' });
-      return;
-    }
+    sql += ' ORDER BY i.date DESC';
     
-    res.json(results[0]);
-  });
+    const invoices = await dbQuery(sql, params);
+    res.json(invoices);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // إضافة فاتورة جديدة
-app.post('/api/invoices', (req, res) => {
+app.post('/api/invoices', async (req, res) => {
   const {
-    supplier,
+    id,
+    invoice_number,
+    supplier_name,
     type,
     category,
-    invoiceNumber,
     date,
-    amountBeforeTax,
-    taxAmount,
-    totalAmount,
+    amount_before_tax,
+    tax_amount,
+    total_amount,
     notes,
-    fileData,
-    fileType,
-    fileName,
-    fileSize
+    file_data,
+    file_type,
+    file_name,
+    file_size,
+    purchase_order_id
   } = req.body;
-  
-  const query = `
-    INSERT INTO invoices (
-      supplier, type, category, invoiceNumber, date,
-      amountBeforeTax, taxAmount, totalAmount, notes,
-      fileData, fileType, fileName, fileSize
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  
-  db.query(query, [
-    supplier, type, category, invoiceNumber, date,
-    amountBeforeTax, taxAmount, totalAmount, notes,
-    fileData, fileType, fileName, fileSize
-  ], (err, result) => {
-    if (err) {
-      console.error('خطأ في إضافة الفاتورة:', err);
-      res.status(500).json({ error: 'خطأ في إضافة الفاتورة' });
-      return;
+
+  try {
+    // البحث عن المورد أو إنشاؤه
+    let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
+    if (!supplier) {
+      const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
+      supplier = { id: result.insertId };
     }
-    
-    res.json({ 
-      message: 'تم إضافة الفاتورة بنجاح', 
-      invoiceId: result.insertId 
-    });
-  });
+
+    // إدراج الفاتورة
+    await dbQuery(
+      `INSERT INTO invoices (
+        id, invoice_number, supplier_id, type, category, date,
+        amount_before_tax, tax_amount, total_amount, notes,
+        file_data, file_type, file_name, file_size, purchase_order_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, invoice_number, supplier.id, type, category, date,
+        amount_before_tax, tax_amount, total_amount, notes,
+        file_data, file_type, file_name, file_size, purchase_order_id
+      ]
+    );
+
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // تحديث فاتورة
-app.put('/api/invoices/:id', (req, res) => {
+app.put('/api/invoices/:id', async (req, res) => {
   const { id } = req.params;
   const {
-    supplier,
+    invoice_number,
+    supplier_name,
     type,
     category,
-    invoiceNumber,
     date,
-    amountBeforeTax,
-    taxAmount,
-    totalAmount,
+    amount_before_tax,
+    tax_amount,
+    total_amount,
     notes
   } = req.body;
-  
-  const query = `
-    UPDATE invoices 
-    SET supplier = ?, type = ?, category = ?, invoiceNumber = ?, 
-        date = ?, amountBeforeTax = ?, taxAmount = ?, totalAmount = ?, 
-        notes = ?, updatedAt = NOW()
-    WHERE id = ?
-  `;
-  
-  db.query(query, [
-    supplier, type, category, invoiceNumber, date,
-    amountBeforeTax, taxAmount, totalAmount, notes, id
-  ], (err, result) => {
-    if (err) {
-      console.error('خطأ في تحديث الفاتورة:', err);
-      res.status(500).json({ error: 'خطأ في تحديث الفاتورة' });
-      return;
+
+  try {
+    // البحث عن المورد أو إنشاؤه
+    let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
+    if (!supplier) {
+      const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
+      supplier = { id: result.insertId };
     }
-    
-    res.json({ message: 'تم تحديث الفاتورة بنجاح' });
-  });
+
+    await dbQuery(
+      `UPDATE invoices SET 
+        invoice_number = ?, supplier_id = ?, type = ?, category = ?,
+        date = ?, amount_before_tax = ?, tax_amount = ?, total_amount = ?, notes = ?
+      WHERE id = ?`,
+      [
+        invoice_number, supplier.id, type, category,
+        date, amount_before_tax, tax_amount, total_amount, notes, id
+      ]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // حذف فاتورة
-app.delete('/api/invoices/:id', (req, res) => {
+app.delete('/api/invoices/:id', async (req, res) => {
   const { id } = req.params;
-  
-  // حذف الفاتورة من أوامر الشراء أولاً
-  const unlinkQuery = 'UPDATE purchase_orders SET linkedInvoices = JSON_REMOVE(linkedInvoices, JSON_UNQUOTE(JSON_SEARCH(linkedInvoices, "one", ?))) WHERE JSON_SEARCH(linkedInvoices, "one", ?) IS NOT NULL';
-  
-  db.query(unlinkQuery, [id, id], (err) => {
-    if (err) {
-      console.error('خطأ في إلغاء ربط الفاتورة:', err);
-    }
-    
-    // حذف الفاتورة
-    const deleteQuery = 'DELETE FROM invoices WHERE id = ?';
-    
-    db.query(deleteQuery, [id], (err, result) => {
-      if (err) {
-        console.error('خطأ في حذف الفاتورة:', err);
-        res.status(500).json({ error: 'خطأ في حذف الفاتورة' });
-        return;
-      }
-      
-      res.json({ message: 'تم حذف الفاتورة بنجاح' });
-    });
-  });
+  try {
+    await dbQuery('DELETE FROM invoices WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// =================== APIs لأوامر الشراء ===================
+// ===== PAYMENTS ENDPOINTS =====
 
-// جلب جميع أوامر الشراء
-app.get('/api/purchase-orders', (req, res) => {
-  const query = `
-    SELECT 
-      po.*,
-      (SELECT JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'id', i.id,
-          'invoiceNumber', i.invoiceNumber,
-          'supplier', i.supplier,
-          'date', i.date,
-          'totalAmount', i.totalAmount
-        )
-      ) FROM invoices i WHERE i.purchaseOrderId = po.id) as linkedInvoices
-    FROM purchase_orders po
-    ORDER BY po.createdDate DESC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب أوامر الشراء:', err);
-      res.status(500).json({ error: 'خطأ في جلب أوامر الشراء' });
-      return;
+// الحصول على مدفوعات مورد
+app.get('/api/payments', async (req, res) => {
+  const { supplier_id } = req.query;
+  try {
+    let sql = 'SELECT * FROM payments';
+    const params = [];
+    
+    if (supplier_id) {
+      sql += ' WHERE supplier_id = ?';
+      params.push(supplier_id);
     }
     
-    // تحويل البيانات للتوافق مع الواجهة الأمامية
-    const formattedResults = results.map(po => ({
-      ...po,
-      linkedInvoices: po.linkedInvoices || []
-    }));
+    sql += ' ORDER BY date DESC';
     
-    res.json(formattedResults);
-  });
+    const payments = await dbQuery(sql, params);
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// إضافة دفعة جديدة
+app.post('/api/payments', async (req, res) => {
+  const { id, supplier_id, amount, date, notes } = req.body;
+  try {
+    await dbQuery(
+      'INSERT INTO payments (id, supplier_id, amount, date, notes) VALUES (?, ?, ?, ?, ?)',
+      [id, supplier_id, amount, date, notes]
+    );
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// تحديث دفعة
+app.put('/api/payments/:id', async (req, res) => {
+  const { id } = req.params;
+  const { amount, date, notes } = req.body;
+  try {
+    await dbQuery(
+      'UPDATE payments SET amount = ?, date = ?, notes = ? WHERE id = ?',
+      [amount, date, notes, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// حذف دفعة
+app.delete('/api/payments/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await dbQuery('DELETE FROM payments WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== PURCHASE ORDERS ENDPOINTS =====
+
+// الحصول على أوامر الشراء
+app.get('/api/purchase-orders', async (req, res) => {
+  try {
+    const orders = await dbQuery(`
+      SELECT po.*, s.name as supplier_name 
+      FROM purchase_orders po 
+      JOIN suppliers s ON po.supplier_id = s.id 
+      ORDER BY po.id DESC
+    `);
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // إضافة أمر شراء جديد
-app.post('/api/purchase-orders', (req, res) => {
+app.post('/api/purchase-orders', async (req, res) => {
   const {
-    supplier,
+    id,
+    supplier_name,
     description,
     price,
-    pdfData,
-    pdfName,
-    pdfSize
+    pdf_file_data,
+    pdf_file_name,
+    pdf_file_size,
+    created_date
   } = req.body;
-  
-  // إنشاء ID جديد
-  const getLastIdQuery = 'SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1';
-  
-  db.query(getLastIdQuery, (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب آخر ID:', err);
-      res.status(500).json({ error: 'خطأ في إنشاء أمر الشراء' });
-      return;
+
+  try {
+    // البحث عن المورد أو إنشاؤه
+    let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
+    if (!supplier) {
+      const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
+      supplier = { id: result.insertId };
     }
-    
-    const lastNum = results.length > 0 ? parseInt(results[0].id.split('-')[1]) : 0;
-    const newId = `PO-${String(lastNum + 1).padStart(3, '0')}`;
-    
-    const query = `
-      INSERT INTO purchase_orders (
-        id, supplier, description, price, 
-        pdfData, pdfName, pdfSize, createdDate, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), 'active')
-    `;
-    
-    db.query(query, [
-      newId, supplier, description, price,
-      pdfData, pdfName, pdfSize
-    ], (err, result) => {
-      if (err) {
-        console.error('خطأ في إضافة أمر الشراء:', err);
-        res.status(500).json({ error: 'خطأ في إضافة أمر الشراء' });
-        return;
-      }
-      
-      res.json({ 
-        message: 'تم إضافة أمر الشراء بنجاح', 
-        orderId: newId 
-      });
-    });
-  });
+
+    await dbQuery(
+      `INSERT INTO purchase_orders (
+        id, supplier_id, description, price, pdf_file_data, 
+        pdf_file_name, pdf_file_size, created_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, supplier.id, description, price, pdf_file_data,
+        pdf_file_name, pdf_file_size, created_date
+      ]
+    );
+
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // تحديث أمر شراء
-app.put('/api/purchase-orders/:id', (req, res) => {
+app.put('/api/purchase-orders/:id', async (req, res) => {
   const { id } = req.params;
-  const { supplier, description, price } = req.body;
-  
-  const query = `
-    UPDATE purchase_orders 
-    SET supplier = ?, description = ?, price = ?
-    WHERE id = ?
-  `;
-  
-  db.query(query, [supplier, description, price, id], (err, result) => {
-    if (err) {
-      console.error('خطأ في تحديث أمر الشراء:', err);
-      res.status(500).json({ error: 'خطأ في تحديث أمر الشراء' });
-      return;
+  const { supplier_name, description, price, pdf_file_data, pdf_file_name, pdf_file_size } = req.body;
+
+  try {
+    // البحث عن المورد أو إنشاؤه
+    let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
+    if (!supplier) {
+      const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
+      supplier = { id: result.insertId };
     }
-    
-    res.json({ message: 'تم تحديث أمر الشراء بنجاح' });
-  });
+
+    const updateFields = ['supplier_id = ?', 'description = ?', 'price = ?'];
+    const updateValues = [supplier.id, description, price];
+
+    if (pdf_file_data) {
+      updateFields.push('pdf_file_data = ?', 'pdf_file_name = ?', 'pdf_file_size = ?');
+      updateValues.push(pdf_file_data, pdf_file_name, pdf_file_size);
+    }
+
+    updateValues.push(id);
+
+    await dbQuery(
+      `UPDATE purchase_orders SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // حذف أمر شراء
-app.delete('/api/purchase-orders/:id', (req, res) => {
+app.delete('/api/purchase-orders/:id', async (req, res) => {
   const { id } = req.params;
-  
-  // إلغاء ربط الفواتير أولاً
-  const unlinkQuery = 'UPDATE invoices SET purchaseOrderId = NULL WHERE purchaseOrderId = ?';
-  
-  db.query(unlinkQuery, [id], (err) => {
-    if (err) {
-      console.error('خطأ في إلغاء ربط الفواتير:', err);
-    }
-    
+  try {
+    // إلغاء ربط الفواتير أولاً
+    await dbQuery('UPDATE invoices SET purchase_order_id = NULL WHERE purchase_order_id = ?', [id]);
     // حذف أمر الشراء
-    const deleteQuery = 'DELETE FROM purchase_orders WHERE id = ?';
-    
-    db.query(deleteQuery, [id], (err, result) => {
-      if (err) {
-        console.error('خطأ في حذف أمر الشراء:', err);
-        res.status(500).json({ error: 'خطأ في حذف أمر الشراء' });
-        return;
-      }
-      
-      res.json({ message: 'تم حذف أمر الشراء بنجاح' });
-    });
-  });
-});
-
-// ربط فاتورة بأمر شراء
-app.post('/api/purchase-orders/:id/link-invoice', (req, res) => {
-  const { id } = req.params;
-  const { invoiceId } = req.body;
-  
-  const query = 'UPDATE invoices SET purchaseOrderId = ? WHERE id = ?';
-  
-  db.query(query, [id, invoiceId], (err, result) => {
-    if (err) {
-      console.error('خطأ في ربط الفاتورة:', err);
-      res.status(500).json({ error: 'خطأ في ربط الفاتورة' });
-      return;
-    }
-    
-    res.json({ message: 'تم ربط الفاتورة بنجاح' });
-  });
-});
-
-// إلغاء ربط فاتورة
-app.post('/api/invoices/:id/unlink', (req, res) => {
-  const { id } = req.params;
-  
-  const query = 'UPDATE invoices SET purchaseOrderId = NULL WHERE id = ?';
-  
-  db.query(query, [id], (err, result) => {
-    if (err) {
-      console.error('خطأ في إلغاء ربط الفاتورة:', err);
-      res.status(500).json({ error: 'خطأ في إلغاء ربط الفاتورة' });
-      return;
-    }
-    
-    res.json({ message: 'تم إلغاء ربط الفاتورة بنجاح' });
-  });
-});
-
-// =================== APIs للمدفوعات ===================
-
-// جلب مدفوعات مورد
-app.get('/api/payments', (req, res) => {
-  const { supplier } = req.query;
-  
-  let query = 'SELECT * FROM payments';
-  let params = [];
-  
-  if (supplier) {
-    query += ' WHERE supplier = ?';
-    params.push(supplier);
+    await dbQuery('DELETE FROM purchase_orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  query += ' ORDER BY date DESC';
-  
-  db.query(query, params, (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب المدفوعات:', err);
-      res.status(500).json({ error: 'خطأ في جلب المدفوعات' });
-      return;
-    }
-    
-    res.json(results);
-  });
 });
 
-// إضافة مدفوعة جديدة
-app.post('/api/payments', (req, res) => {
-  const { supplier, amount, date, notes } = req.body;
-  
-  const query = `
-    INSERT INTO payments (supplier, amount, date, notes) 
-    VALUES (?, ?, ?, ?)
-  `;
-  
-  db.query(query, [supplier, amount, date, notes], (err, result) => {
-    if (err) {
-      console.error('خطأ في إضافة المدفوعة:', err);
-      res.status(500).json({ error: 'خطأ في إضافة المدفوعة' });
-      return;
-    }
+// ===== STATISTICS ENDPOINTS =====
+
+// إحصائيات عامة
+app.get('/api/statistics', async (req, res) => {
+  try {
+    const [suppliers] = await dbQuery('SELECT COUNT(*) as count FROM suppliers');
+    const [invoices] = await dbQuery('SELECT COUNT(*) as count FROM invoices');
+    const [orders] = await dbQuery('SELECT COUNT(*) as count FROM purchase_orders');
     
-    res.json({ 
-      message: 'تم إضافة المدفوعة بنجاح', 
-      paymentId: result.insertId 
+    const [invoiceTotals] = await dbQuery(`
+      SELECT 
+        SUM(total_amount) as total_invoices,
+        supplier_id
+      FROM invoices
+      GROUP BY supplier_id
+    `);
+    
+    const [paymentTotals] = await dbQuery(`
+      SELECT 
+        SUM(amount) as total_payments,
+        supplier_id
+      FROM payments
+      GROUP BY supplier_id
+    `);
+
+    res.json({
+      suppliers_count: suppliers.count,
+      invoices_count: invoices.count,
+      orders_count: orders.count,
+      invoice_totals: invoiceTotals || [],
+      payment_totals: paymentTotals || []
     });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// تحديث مدفوعة
-app.put('/api/payments/:id', (req, res) => {
-  const { id } = req.params;
-  const { amount, date, notes } = req.body;
-  
-  const query = `
-    UPDATE payments 
-    SET amount = ?, date = ?, notes = ?, updatedAt = NOW()
-    WHERE id = ?
-  `;
-  
-  db.query(query, [amount, date, notes, id], (err, result) => {
-    if (err) {
-      console.error('خطأ في تحديث المدفوعة:', err);
-      res.status(500).json({ error: 'خطأ في تحديث المدفوعة' });
-      return;
-    }
-    
-    res.json({ message: 'تم تحديث المدفوعة بنجاح' });
-  });
+// خدمة الملفات الثابتة
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
-// حذف مدفوعة
-app.delete('/api/payments/:id', (req, res) => {
-  const { id } = req.params;
-  
-  const query = 'DELETE FROM payments WHERE id = ?';
-  
-  db.query(query, [id], (err, result) => {
-    if (err) {
-      console.error('خطأ في حذف المدفوعة:', err);
-      res.status(500).json({ error: 'خطأ في حذف المدفوعة' });
-      return;
-    }
-    
-    res.json({ message: 'تم حذف المدفوعة بنجاح' });
-  });
-});
-
-// =================== APIs للموردين ===================
-
-// جلب قائمة الموردين للإكمال التلقائي
-app.get('/api/suppliers', (req, res) => {
-  const query = `
-    SELECT DISTINCT supplier as name 
-    FROM invoices 
-    WHERE supplier IS NOT NULL AND supplier != ''
-    UNION
-    SELECT DISTINCT supplier as name 
-    FROM purchase_orders 
-    WHERE supplier IS NOT NULL AND supplier != ''
-    ORDER BY name
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('خطأ في جلب الموردين:', err);
-      res.status(500).json({ error: 'خطأ في جلب الموردين' });
-      return;
-    }
-    
-    const suppliers = results.map(row => row.name);
-    res.json({ suppliers });
-  });
-});
-
-// =================== APIs للإحصائيات ===================
-
-// إحصائيات اللوحة الرئيسية
-app.get('/api/dashboard/stats', (req, res) => {
-  const queries = {
-    supplierCount: `
-      SELECT COUNT(DISTINCT supplier) as count 
-      FROM invoices 
-      WHERE supplier IS NOT NULL AND supplier != ''
-    `,
-    invoiceCount: 'SELECT COUNT(*) as count FROM invoices',
-    orderCount: 'SELECT COUNT(*) as count FROM purchase_orders',
-    totalAmount: 'SELECT SUM(totalAmount) as total FROM invoices'
-  };
-  
-  const results = {};
-  const queryKeys = Object.keys(queries);
-  let completed = 0;
-  
-  queryKeys.forEach(key => {
-    db.query(queries[key], (err, result) => {
-      if (err) {
-        console.error(`خطأ في استعلام ${key}:`, err);
-        results[key] = 0;
-      } else {
-        results[key] = result[0].count || result[0].total || 0;
-      }
-      
-      completed++;
-      if (completed === queryKeys.length) {
-        res.json(results);
-      }
-    });
-  });
-});
-
-// =================== تحليل الفواتير بالذكاء الاصطناعي ===================
-
-app.post('/api/analyze-invoice', upload.single('invoice'), (req, res) => {
-  // محاكاة تحليل الذكاء الاصطناعي
-  // في التطبيق الحقيقي، ستستخدم خدمة OCR مثل Google Vision API
-  
-  const mockAnalysis = {
-    supplier: 'شركة تجريبية',
-    invoiceNumber: 'INV-' + Math.floor(Math.random() * 10000),
-    date: new Date().toISOString().split('T')[0],
-    type: 'فاتورة شراء',
-    amountBeforeTax: Math.floor(Math.random() * 10000),
-    taxAmount: 0,
-    totalAmount: 0
-  };
-  
-  mockAnalysis.totalAmount = mockAnalysis.amountBeforeTax + mockAnalysis.taxAmount;
-  
-  res.json({
-    success: true,
-    data: mockAnalysis
-  });
-});
-
-// =================== معالجة الأخطاء ===================
-
-app.use((err, req, res, next) => {
-  console.error('خطأ في الخادم:', err);
-  res.status(500).json({ error: 'خطأ داخلي في الخادم' });
-});
-
-// =================== بدء الخادم ===================
-
+// بدء الخادم
 app.listen(PORT, () => {
-  console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
-  console.log(`📊 لوحة الإدارة: http://localhost:${PORT}`);
+  console.log(`الخادم يعمل على المنفذ ${PORT}`);
 });
