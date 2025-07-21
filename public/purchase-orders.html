@@ -1835,28 +1835,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 }
       
       // Link invoice to PO
-      function linkInvoiceToPO() {
-        if (!selectedInvoice || !currentLinkingPO) return;
-        
-        const invoice = invoices.find(inv => inv.invoiceNumber === selectedInvoice);
-        if (invoice) {
-          invoice.purchaseOrderId = currentLinkingPO;
-          localStorage.setItem('invoices', JSON.stringify(invoices));
-          renderPurchaseOrders();
-          elements.linkInvoiceModal.classList.remove('show');
-          clearSearch();
-          
-          // Show success message
-          const successMessage = document.createElement('div');
-          successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
-          successMessage.textContent = `تم ربط الفاتورة ${selectedInvoice} بنجاح!`;
-          document.body.appendChild(successMessage);
-          
-          setTimeout(() => {
-            successMessage.remove();
-          }, 3000);
-        }
-      }
+      async function linkInvoiceToPO() {
+  if (!selectedInvoice || !currentLinkingPO) return;
+  
+  try {
+    const invoice = invoices.find(inv => inv.invoice_number === selectedInvoice);
+    if (!invoice) return;
+    
+    // تحديث الفاتورة مع معرف أمر الشراء
+    await invoicesAPI.update(invoice.id, {
+      ...invoice,
+      purchase_order_id: currentLinkingPO
+    });
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    elements.linkInvoiceModal.classList.remove('show');
+    clearSearch();
+    
+    // إظهار رسالة نجاح
+    const successMessage = document.createElement('div');
+    successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
+    successMessage.textContent = `تم ربط الفاتورة ${selectedInvoice} بنجاح!`;
+    document.body.appendChild(successMessage);
+    
+    setTimeout(() => {
+      successMessage.remove();
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error linking invoice:', error);
+    alert('حدث خطأ في ربط الفاتورة');
+  }
+}
       
       // Delete purchase order
       async function deletePurchaseOrder() {
