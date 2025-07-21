@@ -670,29 +670,124 @@
     }
 
     // Render dashboard
-    function renderDashboard() {
-      const invoices = loadInvoices();
-      const purchaseOrders = loadPurchaseOrders();
-      const supplierMap = {};
-
-      // Process invoices data
-      invoices.forEach(inv => {
-        const name = inv.supplier || 'غير معروف';
-        if (!supplierMap[name]) {
-          supplierMap[name] = { 
-            latestDate: '', 
+    async function renderDashboard() {
+  try {
+    const stats = await statisticsAPI.getAll();
+    const invoices = await invoicesAPI.getAll();
+    const suppliers = await suppliersAPI.getAll();
+    
+    // حساب المبالغ المستحقة
+    let totalOutstanding = 0;
+    stats.invoice_totals.forEach(invTotal => {
+      const payTotal = stats.payment_totals.find(p => p.supplier_id === invTotal.supplier_id);
+      const paid = payTotal ? parseFloat(payTotal.total_payments) : 0;
+      const invoiced = parseFloat(invTotal.total_invoices);
+      const outstanding = Math.max(0, invoiced - paid);
+      totalOutstanding += outstanding;
+    });
+    
+    // تحديث KPI
+    setTimeout(() => animateNumber(document.getElementById('supplierCount'), suppliers.length), 100);
+    setTimeout(() => animateNumber(document.getElementById('unpaidCount'), invoices.length), 200);
+    setTimeout(() => animateNumber(document.getElementById('openOrdersCount'), stats.orders_count), 300);
+    setTimeout(() => {
+      const element = document.getElementById('outstandingSum');
+      element.textContent = formatCurrency(totalOutstanding);
+    }, 400);
+    
+    // عرض آخر 3 موردين
+    const recentSuppliers = invoices
+      .reduce((acc, inv) => {
+        const supplier = suppliers.find(s => s.id === inv.supplier_id);
+        if (!supplier) return acc;
+        
+        if (!acc[supplier.name]) {
+          acc[supplier.name] = {
+            name: supplier.name,
+            latestDate: inv.date,
             totalInvoices: 0,
-            totalAmount: 0 
+            totalAmount: 0
           };
         }
         
-        supplierMap[name].totalInvoices++;
-        supplierMap[name].totalAmount += inv.totalAmount || 0;
+        acc[supplier.name].totalInvoices++;
+        acc[supplier.name].totalAmount += parseFloat(inv.total_amount);
         
-        if (!supplierMap[name].latestDate || new Date(inv.date) > new Date(supplierMap[name].latestDate)) {
-          supplierMap[name].latestDate = inv.date;
+        if (new Date(inv.date) > new Date(acc[supplier.name].latestDate)) {
+          acc[supplier.name].latestDate = inv.date;
         }
+        
+        return acc;
+      }, {});
+    
+    const sortedSuppliers = Object.values(recentSuppliers)
+      .sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate))
+      .slice(0, 3);
+    
+    // عرض الموردين
+    const grid = document.getElementById('supplier-container');
+    grid.innerHTML = '';
+    
+    sortedSuppliers.forEach((supplier, index) => {
+      const card = document.createElement('div');
+      card.className = 'supplier-card slide-right';
+      card.style.animationDelay = `${index * 0.1}s`;
+      
+      card.innerHTML = `
+        <div class="supplier-icon">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+        </div>
+        <h4 class="text-lg font-bold text-slate-200 mb-2 break-words">${supplier.name}</h4>
+        <div class="space-y-2 text-sm text-slate-400 mb-4">
+          <div class="flex justify-between">
+            <span>الفواتير:</span>
+            <span class="text-slate-300 font-semibold">${supplier.totalInvoices}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>الإجمالي:</span>
+            <span class="text-slate-300 font-semibold">${formatCurrency(supplier.totalAmount)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>آخر فاتورة:</span>
+            <span class="text-slate-300 font-semibold">${supplier.latestDate || '-'}</span>
+          </div>
+        </div>
+        <a href="view.html" class="modern-btn success w-full text-center justify-center">
+          عرض الفواتير
+        </a>
+      `;
+      
+      grid.appendChild(card);
+    });
+    
+    // عرض آخر 5 فواتير
+    const tbody = document.getElementById('invoice-tbody');
+    tbody.innerHTML = '';
+    
+    invoices
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5)
+      .forEach((inv, index) => {
+        const row = document.createElement('tr');
+        row.className = 'fade-up';
+        row.style.animationDelay = `${index * 0.1}s`;
+        
+        row.innerHTML = `
+          <td class="font-semibold text-slate-300">${inv.invoice_number}</td>
+          <td class="text-slate-400">${inv.supplier_name || '-'}</td>
+          <td class="text-slate-400">${inv.date || '-'}</td>
+          <td class="font-mono font-bold text-slate-300">${formatCurrency(inv.total_amount || 0)}</td>
+        `;
+        
+        tbody.appendChild(row);
       });
+      
+  } catch (error) {
+    console.error('Error loading dashboard:', error);
+  }
+}
 
       // Update KPI with animations - using new payment-based outstanding calculation
       const supplierCount = Object.keys(supplierMap).length;
