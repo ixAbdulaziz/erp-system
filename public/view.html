@@ -3300,10 +3300,49 @@
       document.getElementById('refresh-data-btn').addEventListener('click', () => {
         console.log('🔄 إعادة تحميل البيانات...');
         
-        // إعادة تحميل البيانات من localStorage
-        invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-        payments = JSON.parse(localStorage.getItem('payments') || '[]');
-        pinnedSuppliers = JSON.parse(localStorage.getItem('pinnedSuppliers') || '[]');
+        let invoices = [];
+let payments = [];
+let suppliers = [];
+let currentSupplierId = null;
+
+// تحميل البيانات من قاعدة البيانات
+async function loadData() {
+  try {
+    suppliers = await suppliersAPI.getAll();
+    invoices = await invoicesAPI.getAll();
+    payments = await paymentsAPI.getAll();
+    
+    // تحويل البيانات لتتوافق مع الكود الحالي
+    invoices = invoices.map(inv => ({
+      ...inv,
+      supplier: inv.supplier_name,
+      invoiceNumber: inv.invoice_number,
+      amountBeforeTax: parseFloat(inv.amount_before_tax),
+      taxAmount: parseFloat(inv.tax_amount),
+      totalAmount: parseFloat(inv.total_amount),
+      fileData: inv.file_data,
+      fileType: inv.file_type,
+      fileName: inv.file_name,
+      fileSize: inv.file_size
+    }));
+    
+    payments = payments.map(pay => ({
+      ...pay,
+      supplier: suppliers.find(s => s.id === pay.supplier_id)?.name || 'غير معروف',
+      amount: parseFloat(pay.amount)
+    }));
+    
+    renderSuppliers();
+  } catch (error) {
+    console.error('Error loading data:', error);
+  }
+}
+
+// استدعاء تحميل البيانات عند بدء الصفحة
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  initializeSortHandlers();
+});
         
         // إعادة تعيين البحث
         elements.supplierSearch.value = '';
