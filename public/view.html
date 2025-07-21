@@ -2249,31 +2249,44 @@
         setTimeout(() => elements.paymentAmount.focus(), 100);
       }
 
-      function savePayment() {
-        const amount = parseFloat(elements.paymentAmount.value);
-        const date = elements.paymentDate.value;
-        const notes = elements.paymentNotes.value.trim();
-        
-        if (!amount || amount <= 0 || !date) {
-          alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
-          return;
-        }
-        
-        const newPayment = {
-          id: 'pay' + Date.now(),
-          supplier: currentSupplier,
-          amount: amount,
-          date: date,
-          notes: notes,
-          createdAt: new Date().toISOString()
-        };
-        
-        payments.push(newPayment);
-        localStorage.setItem('payments', JSON.stringify(payments));
-        
-        elements.addPaymentModal.classList.remove('show');
-        renderPaymentsTable();
-        updatePaymentStats();
+      async function savePayment() {
+  const amount = parseFloat(elements.paymentAmount.value);
+  const date = elements.paymentDate.value;
+  const notes = elements.paymentNotes.value.trim();
+  
+  if (!amount || amount <= 0 || !date) {
+    alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
+    return;
+  }
+  
+  try {
+    const supplier = suppliers.find(s => s.name === currentSupplier);
+    if (!supplier) {
+      alert('خطأ: لم يتم العثور على المورد');
+      return;
+    }
+    
+    const newPayment = {
+      id: 'pay' + Date.now(),
+      supplier_id: supplier.id,
+      amount: amount,
+      date: date,
+      notes: notes
+    };
+    
+    await paymentsAPI.create(newPayment);
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    
+    elements.addPaymentModal.classList.remove('show');
+    renderPaymentsTable();
+    updatePaymentStats();
+  } catch (error) {
+    console.error('Error saving payment:', error);
+    alert('خطأ في حفظ الدفعة');
+  }
+}
         
         // Show success feedback
         const originalText = elements.savePaymentBtn.innerHTML;
