@@ -1,405 +1,470 @@
-// ملف add.js - إضافة أوامر شراء جديدة
+// add-invoice.js - JavaScript لصفحة إضافة الفاتورة
 
-// متغيرات عامة
-let orderItems = [];
-let itemCounter = 0;
+// قائمة الموردين (يمكن استبدالها بـ API لاحقاً)
+const suppliers = [
+    'شركة الرياض للتجارة',
+    'مؤسسة النور التجارية',
+    'شركة السلام للتوريدات',
+    'مؤسسة الأمانة',
+    'شركة الخليج للمواد الغذائية',
+    'مؤسسة البناء الحديث',
+    'شركة التقنية المتقدمة',
+    'مؤسسة الجودة العالية'
+];
 
-// تحميل الصفحة
+// تهيئة الصفحة عند التحميل
 document.addEventListener('DOMContentLoaded', function() {
-    initializeAddOrderPage();
+    initializeForm();
     setupEventListeners();
+    setupDragAndDrop();
 });
 
-// تهيئة صفحة إضافة الطلب
-function initializeAddOrderPage() {
-    console.log('تم تحميل صفحة إضافة طلب شراء جديد');
-    
+// تهيئة النموذج
+function initializeForm() {
     // تعيين التاريخ الحالي
-    const dateInput = document.getElementById('order_date');
+    const dateInput = document.getElementById('date');
     if (dateInput) {
-        dateInput.value = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
     }
     
-    // إضافة أول عنصر افتراضي
-    addNewItem();
+    // تهيئة الإكمال التلقائي للموردين
+    setupAutocomplete();
 }
 
 // إعداد مستمعي الأحداث
 function setupEventListeners() {
-    // نموذج الطلب الرئيسي
-    const orderForm = document.getElementById('purchase-order-form');
-    if (orderForm) {
-        orderForm.addEventListener('submit', handleOrderSubmit);
+    // حساب الإجمالي تلقائياً
+    const amountBeforeTax = document.getElementById('amountBeforeTax');
+    const taxAmount = document.getElementById('taxAmount');
+    
+    if (amountBeforeTax && taxAmount) {
+        amountBeforeTax.addEventListener('input', calculateTotal);
+        taxAmount.addEventListener('input', calculateTotal);
     }
     
-    // زر إضافة عنصر جديد
-    const addItemBtn = document.getElementById('add-item-btn');
-    if (addItemBtn) {
-        addItemBtn.addEventListener('click', addNewItem);
+    // معالجة رفع الملف
+    const fileInput = document.getElementById('pdfFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
     }
     
-    // زر حفظ وإضافة آخر
-    const saveAndAddBtn = document.getElementById('save-and-add-btn');
-    if (saveAndAddBtn) {
-        saveAndAddBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            handleOrderSubmit(e, true);
-        });
+    // زر تحليل الفاتورة
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', analyzeInvoice);
     }
     
-    // زر إعادة تعيين النموذج
-    const resetBtn = document.getElementById('reset-form-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetForm);
+    // إرسال النموذج
+    const form = document.getElementById('invoiceForm');
+    if (form) {
+        form.addEventListener('submit', handleFormSubmit);
     }
 }
 
-// معالجة إرسال نموذج الطلب
-async function handleOrderSubmit(event, saveAndContinue = false) {
-    event.preventDefault();
+// إعداد الإكمال التلقائي
+function setupAutocomplete() {
+    const supplierInput = document.getElementById('supplier');
+    const suggestionsDiv = document.getElementById('supplierSuggestions');
+    const warningDiv = document.getElementById('supplierWarning');
     
-    try {
-        // جمع بيانات النموذج
-        const formData = collectFormData();
+    if (!supplierInput || !suggestionsDiv) return;
+    
+    let currentFocus = -1;
+    
+    supplierInput.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        suggestionsDiv.innerHTML = '';
+        currentFocus = -1;
         
-        // التحقق من صحة البيانات
-        if (!validateOrderData(formData)) {
+        if (!value) {
+            suggestionsDiv.classList.remove('show');
+            warningDiv.classList.remove('show');
             return;
         }
         
-        // إظهار مؤشر التحميل
-        showSubmitLoading(true);
+        const matches = suppliers.filter(supplier => 
+            supplier.toLowerCase().includes(value)
+        );
         
-        // إرسال البيانات إلى الخادم
-        const response = await fetch('/api/purchase-orders', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // إظهار رسالة نجاح
-        showSuccessMessage('تم إضافة طلب الشراء بنجاح!');
-        
-        if (saveAndContinue) {
-            // إعادة تعيين النموذج للطلب التالي
-            resetForm();
-        } else {
-            // الانتقال إلى صفحة العرض أو القائمة
-            setTimeout(() => {
-                window.location.href = '/view';
-            }, 2000);
-        }
-        
-    } catch (error) {
-        console.error('خطأ في إضافة طلب الشراء:', error);
-        showErrorMessage('فشل في إضافة طلب الشراء. حاول مرة أخرى.');
-    } finally {
-        showSubmitLoading(false);
-    }
-}
-
-// جمع بيانات النموذج
-function collectFormData() {
-    const form = document.getElementById('purchase-order-form');
-    const formData = new FormData(form);
-    
-    const orderData = {
-        supplier_name: formData.get('supplier_name'),
-        order_date: formData.get('order_date'),
-        status: formData.get('status') || 'pending',
-        notes: formData.get('notes'),
-        items: collectItemsData()
-    };
-    
-    return orderData;
-}
-
-// جمع بيانات العناصر
-function collectItemsData() {
-    const items = [];
-    const itemRows = document.querySelectorAll('.item-row');
-    
-    itemRows.forEach(row => {
-        const itemName = row.querySelector('[name="item_name"]')?.value;
-        const quantity = parseFloat(row.querySelector('[name="quantity"]')?.value) || 0;
-        const unitPrice = parseFloat(row.querySelector('[name="unit_price"]')?.value) || 0;
-        const description = row.querySelector('[name="description"]')?.value;
-        
-        if (itemName && quantity > 0 && unitPrice > 0) {
-            items.push({
-                item_name: itemName,
-                quantity: quantity,
-                unit_price: unitPrice,
-                description: description
+        if (matches.length > 0) {
+            suggestionsDiv.classList.add('show');
+            
+            matches.forEach((supplier, index) => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                
+                // تمييز النص المطابق
+                const regex = new RegExp(`(${value})`, 'gi');
+                const highlightedText = supplier.replace(regex, '<span class="autocomplete-match">$1</span>');
+                
+                div.innerHTML = `
+                    <svg class="autocomplete-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    ${highlightedText}
+                `;
+                
+                div.addEventListener('click', function() {
+                    supplierInput.value = supplier;
+                    suggestionsDiv.classList.remove('show');
+                    warningDiv.classList.remove('show');
+                    supplierInput.parentElement.classList.add('selected');
+                });
+                
+                suggestionsDiv.appendChild(div);
             });
+        } else {
+            suggestionsDiv.classList.remove('show');
+            // عرض تحذير إذا لم يكن المورد موجوداً
+            if (value.length >= 3) {
+                warningDiv.innerHTML = `
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    هذا المورد غير موجود في النظام. سيتم إضافته كمورد جديد.
+                `;
+                warningDiv.classList.add('show');
+            }
         }
     });
     
-    return items;
+    // التنقل بالأسهم
+    supplierInput.addEventListener('keydown', function(e) {
+        const items = suggestionsDiv.getElementsByClassName('autocomplete-item');
+        
+        if (e.keyCode === 40) { // سهم لأسفل
+            currentFocus++;
+            addActive(items);
+        } else if (e.keyCode === 38) { // سهم لأعلى
+            currentFocus--;
+            addActive(items);
+        } else if (e.keyCode === 13) { // Enter
+            e.preventDefault();
+            if (currentFocus > -1 && items[currentFocus]) {
+                items[currentFocus].click();
+            }
+        } else if (e.keyCode === 27) { // Escape
+            suggestionsDiv.classList.remove('show');
+        }
+    });
+    
+    function addActive(items) {
+        if (!items) return false;
+        removeActive(items);
+        
+        if (currentFocus >= items.length) currentFocus = 0;
+        if (currentFocus < 0) currentFocus = items.length - 1;
+        
+        items[currentFocus].classList.add('highlighted');
+    }
+    
+    function removeActive(items) {
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.remove('highlighted');
+        }
+    }
+    
+    // إغلاق القائمة عند النقر خارجها
+    document.addEventListener('click', function(e) {
+        if (e.target !== supplierInput) {
+            suggestionsDiv.classList.remove('show');
+        }
+    });
 }
 
-// التحقق من صحة البيانات
-function validateOrderData(data) {
+// حساب الإجمالي
+function calculateTotal() {
+    const amountBeforeTax = parseFloat(document.getElementById('amountBeforeTax').value) || 0;
+    const taxAmount = parseFloat(document.getElementById('taxAmount').value) || 0;
+    const totalAmount = document.getElementById('totalAmount');
+    
+    const total = amountBeforeTax + taxAmount;
+    totalAmount.value = total.toFixed(2);
+}
+
+// إعداد السحب والإفلات
+function setupDragAndDrop() {
+    const fileContainer = document.getElementById('fileContainer');
+    if (!fileContainer) return;
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileContainer.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        fileContainer.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        fileContainer.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        fileContainer.classList.add('drag-over');
+        fileContainer.style.borderColor = 'rgba(100, 116, 139, 0.8)';
+        fileContainer.style.background = 'rgba(100, 116, 139, 0.3)';
+    }
+    
+    function unhighlight(e) {
+        fileContainer.classList.remove('drag-over');
+        fileContainer.style.borderColor = '';
+        fileContainer.style.background = '';
+    }
+    
+    fileContainer.addEventListener('drop', handleDrop, false);
+}
+
+// معالجة إسقاط الملف
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+        const fileInput = document.getElementById('pdfFile');
+        fileInput.files = files;
+        handleFileSelect({ target: fileInput });
+    }
+}
+
+// معالجة اختيار الملف
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // التحقق من نوع الملف
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!validTypes.includes(file.type)) {
+        showNotification('يرجى اختيار ملف PDF أو صورة فقط', 'error');
+        event.target.value = '';
+        return;
+    }
+    
+    // التحقق من حجم الملف (10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showNotification('حجم الملف يجب أن يكون أقل من 10MB', 'error');
+        event.target.value = '';
+        return;
+    }
+    
+    // عرض معلومات الملف
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    
+    if (filePreview && fileName) {
+        fileName.textContent = file.name;
+        filePreview.classList.remove('hidden');
+    }
+    
+    // تحديث مظهر منطقة رفع الملف
+    const fileContent = document.getElementById('fileContent');
+    if (fileContent) {
+        fileContent.innerHTML = `
+            <div class="file-icon" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-slate-200 mb-1">تم اختيار الملف</h3>
+            <p class="text-sm text-slate-400">${file.name}</p>
+            <p class="text-xs text-slate-500">${formatFileSize(file.size)}</p>
+        `;
+    }
+}
+
+// إزالة الملف
+function removeFile() {
+    const fileInput = document.getElementById('pdfFile');
+    const filePreview = document.getElementById('filePreview');
+    const fileContent = document.getElementById('fileContent');
+    
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    if (filePreview) {
+        filePreview.classList.add('hidden');
+    }
+    
+    if (fileContent) {
+        fileContent.innerHTML = `
+            <div class="file-icon">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-slate-200 mb-1">اختر ملف PDF أو صورة</h3>
+            <p class="text-sm text-slate-400 mb-1">اسحب الملف هنا أو انقر للاختيار</p>
+            <p class="text-xs text-slate-500">يدعم PDF, JPG, PNG, JPEG • الحد الأقصى 10MB</p>
+        `;
+    }
+}
+
+// تحليل الفاتورة (محاكاة)
+async function analyzeInvoice() {
+    const fileInput = document.getElementById('pdfFile');
+    if (!fileInput.files[0]) {
+        showNotification('يرجى اختيار ملف الفاتورة أولاً', 'warning');
+        return;
+    }
+    
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const analyzeText = document.getElementById('analyzeText');
+    
+    // عرض حالة التحميل
+    analyzeBtn.classList.add('loading');
+    analyzeBtn.disabled = true;
+    analyzeText.innerHTML = '<div class="loading-squares"><span></span><span></span><span></span></div> جاري التحليل...';
+    
+    // محاكاة تحليل الفاتورة
+    setTimeout(() => {
+        // ملء الحقول بقيم تجريبية
+        document.getElementById('invoiceNumber').value = 'INV-2024-' + Math.floor(Math.random() * 10000);
+        document.getElementById('amountBeforeTax').value = (Math.random() * 5000 + 1000).toFixed(2);
+        document.getElementById('taxAmount').value = (parseFloat(document.getElementById('amountBeforeTax').value) * 0.15).toFixed(2);
+        calculateTotal();
+        
+        // إزالة حالة التحميل
+        analyzeBtn.classList.remove('loading');
+        analyzeBtn.disabled = false;
+        analyzeText.textContent = 'تم التحليل بنجاح';
+        
+        // إعادة النص الأصلي بعد ثانيتين
+        setTimeout(() => {
+            analyzeText.textContent = 'تحليل الفاتورة';
+        }, 2000);
+        
+        showNotification('تم تحليل الفاتورة بنجاح!', 'success');
+    }, 2000);
+}
+
+// معالجة إرسال النموذج
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    
+    // جمع البيانات
+    const formData = new FormData(event.target);
+    const invoiceData = {
+        supplier: formData.get('supplier'),
+        type: document.getElementById('type').value,
+        category: formData.get('category'),
+        invoiceNumber: formData.get('invoiceNumber'),
+        date: formData.get('date'),
+        amountBeforeTax: parseFloat(formData.get('amountBeforeTax')),
+        taxAmount: parseFloat(formData.get('taxAmount')),
+        totalAmount: parseFloat(document.getElementById('totalAmount').value),
+        notes: formData.get('notes'),
+        hasFile: document.getElementById('pdfFile').files.length > 0
+    };
+    
+    // التحقق من صحة البيانات
+    if (!validateForm(invoiceData)) {
+        return;
+    }
+    
+    // عرض حالة التحميل
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.classList.add('loading');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<div class="loading-progress"></div> جاري الحفظ...';
+    
+    // محاكاة حفظ البيانات
+    setTimeout(() => {
+        // حفظ في localStorage (محاكاة)
+        const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+        invoiceData.id = Date.now();
+        invoices.push(invoiceData);
+        localStorage.setItem('invoices', JSON.stringify(invoices));
+        
+        // إزالة حالة التحميل
+        saveBtn.classList.remove('loading');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<svg class="w-6 h-6 btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="btn-text">حفظ الفاتورة</span>';
+        
+        // عرض نافذة النجاح
+        document.getElementById('successModal').classList.add('show');
+    }, 1500);
+}
+
+// التحقق من صحة النموذج
+function validateForm(data) {
     const errors = [];
     
-    if (!data.supplier_name?.trim()) {
+    if (!data.supplier.trim()) {
         errors.push('اسم المورد مطلوب');
     }
     
-    if (!data.order_date) {
-        errors.push('تاريخ الطلب مطلوب');
+    if (!data.type) {
+        errors.push('نوع الفاتورة مطلوب');
     }
     
-    if (!data.items || data.items.length === 0) {
-        errors.push('يجب إضافة عنصر واحد على الأقل');
+    if (!data.invoiceNumber.trim()) {
+        errors.push('رقم الفاتورة مطلوب');
     }
     
-    // التحقق من صحة العناصر
-    data.items.forEach((item, index) => {
-        if (!item.item_name?.trim()) {
-            errors.push(`اسم العنصر رقم ${index + 1} مطلوب`);
-        }
-        if (item.quantity <= 0) {
-            errors.push(`كمية العنصر رقم ${index + 1} يجب أن تكون أكبر من صفر`);
-        }
-        if (item.unit_price <= 0) {
-            errors.push(`سعر العنصر رقم ${index + 1} يجب أن يكون أكبر من صفر`);
-        }
-    });
+    if (!data.date) {
+        errors.push('التاريخ مطلوب');
+    }
+    
+    if (data.amountBeforeTax <= 0) {
+        errors.push('المبلغ بدون ضريبة يجب أن يكون أكبر من صفر');
+    }
+    
+    if (data.taxAmount < 0) {
+        errors.push('مبلغ الضريبة لا يمكن أن يكون سالباً');
+    }
+    
+    if (!data.hasFile) {
+        errors.push('يرجى إرفاق ملف الفاتورة');
+    }
     
     if (errors.length > 0) {
-        showValidationErrors(errors);
+        showNotification(errors.join('<br>'), 'error');
         return false;
     }
     
     return true;
 }
 
-// إضافة عنصر جديد
-function addNewItem() {
-    itemCounter++;
-    const itemsContainer = document.getElementById('items-container');
-    if (!itemsContainer) return;
-    
-    const itemHTML = `
-        <div class="item-row card mb-3" data-item-id="${itemCounter}">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="card-title mb-0">العنصر رقم ${itemCounter}</h6>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(${itemCounter})">
-                        <i class="fas fa-trash"></i> حذف
-                    </button>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">اسم الصنف <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="item_name" required>
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">الكمية <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" name="quantity" min="0" step="0.01" required onchange="calculateTotal(${itemCounter})">
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">سعر الوحدة <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" name="unit_price" min="0" step="0.01" required onchange="calculateTotal(${itemCounter})">
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-9 mb-3">
-                        <label class="form-label">وصف الصنف</label>
-                        <textarea class="form-control" name="description" rows="2" placeholder="وصف اختياري للصنف"></textarea>
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label">الإجمالي</label>
-                        <input type="text" class="form-control total-price" id="total-${itemCounter}" readonly>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    itemsContainer.insertAdjacentHTML('beforeend', itemHTML);
-    updateOrderTotal();
+// إغلاق نافذة النجاح
+function closeSuccessModal() {
+    document.getElementById('successModal').classList.remove('show');
+    // إعادة تعيين النموذج
+    document.getElementById('invoiceForm').reset();
+    removeFile();
+    // تعيين التاريخ الحالي مرة أخرى
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
 }
 
-// حذف عنصر
-function removeItem(itemId) {
-    const itemRow = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (itemRow) {
-        itemRow.remove();
-        updateOrderTotal();
-        
-        // إعادة ترقيم العناصر
-        renumberItems();
-    }
+// تنسيق حجم الملف
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// إعادة ترقيم العناصر
-function renumberItems() {
-    const itemRows = document.querySelectorAll('.item-row');
-    itemRows.forEach((row, index) => {
-        const title = row.querySelector('.card-title');
-        if (title) {
-            title.textContent = `العنصر رقم ${index + 1}`;
-        }
-    });
-}
-
-// حساب إجمالي العنصر
-function calculateTotal(itemId) {
-    const itemRow = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (!itemRow) return;
+// عرض الإشعارات
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = message;
     
-    const quantity = parseFloat(itemRow.querySelector('[name="quantity"]').value) || 0;
-    const unitPrice = parseFloat(itemRow.querySelector('[name="unit_price"]').value) || 0;
-    const total = quantity * unitPrice;
-    
-    const totalInput = document.getElementById(`total-${itemId}`);
-    if (totalInput) {
-        totalInput.value = formatCurrency(total);
-    }
-    
-    updateOrderTotal();
-}
-
-// تحديث إجمالي الطلب
-function updateOrderTotal() {
-    let grandTotal = 0;
-    const itemRows = document.querySelectorAll('.item-row');
-    
-    itemRows.forEach(row => {
-        const quantity = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
-        const unitPrice = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
-        grandTotal += quantity * unitPrice;
-    });
-    
-    const grandTotalElement = document.getElementById('grand-total');
-    if (grandTotalElement) {
-        grandTotalElement.textContent = formatCurrency(grandTotal);
-    }
-    
-    const itemsCountElement = document.getElementById('items-count');
-    if (itemsCountElement) {
-        itemsCountElement.textContent = itemRows.length;
-    }
-}
-
-// إعادة تعيين النموذج
-function resetForm() {
-    const form = document.getElementById('purchase-order-form');
-    if (form) {
-        form.reset();
-    }
-    
-    // مسح جميع العناصر
-    const itemsContainer = document.getElementById('items-container');
-    if (itemsContainer) {
-        itemsContainer.innerHTML = '';
-    }
-    
-    // إعادة تعيين العداد
-    itemCounter = 0;
-    
-    // إضافة عنصر جديد
-    addNewItem();
-    
-    // تعيين التاريخ الحالي
-    const dateInput = document.getElementById('order_date');
-    if (dateInput) {
-        dateInput.value = new Date().toISOString().split('T')[0];
-    }
-    
-    updateOrderTotal();
-}
-
-// الوظائف المساعدة
-
-// تنسيق العملة
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('ar-SA', {
-        style: 'currency',
-        currency: 'SAR',
-        minimumFractionDigits: 2
-    }).format(amount);
-}
-
-// إظهار مؤشر التحميل للإرسال
-function showSubmitLoading(show) {
-    const submitBtn = document.getElementById('submit-btn');
-    const saveAndAddBtn = document.getElementById('save-and-add-btn');
-    
-    if (show) {
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
-        }
-        if (saveAndAddBtn) {
-            saveAndAddBtn.disabled = true;
-        }
-    } else {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-save"></i> حفظ الطلب';
-        }
-        if (saveAndAddBtn) {
-            saveAndAddBtn.disabled = false;
-        }
-    }
-}
-
-// إظهار رسالة نجاح
-function showSuccessMessage(message) {
-    showToast(message, 'success');
-}
-
-// إظهار رسالة خطأ
-function showErrorMessage(message) {
-    showToast(message, 'error');
-}
-
-// إظهار أخطاء التحقق
-function showValidationErrors(errors) {
-    const errorMessage = 'يرجى تصحيح الأخطاء التالية:\n' + errors.map(error => '• ' + error).join('\n');
-    showToast(errorMessage, 'error');
-}
-
-// إظهار إشعار
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} position-fixed`;
-    toast.style.top = '20px';
-    toast.style.right = '20px';
-    toast.style.zIndex = '9999';
-    toast.style.maxWidth = '400px';
-    toast.innerHTML = `
-        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-        ${message.replace(/\n/g, '<br>')}
-    `;
-    
-    document.body.appendChild(toast);
+    document.body.appendChild(notification);
     
     // إزالة الإشعار بعد 5 ثواني
     setTimeout(() => {
-        if (document.body.contains(toast)) {
-            document.body.removeChild(toast);
-        }
+        notification.remove();
     }, 5000);
 }
 
 // جعل الوظائف متاحة عالمياً
-window.addNewItem = addNewItem;
-window.removeItem = removeItem;
-window.calculateTotal = calculateTotal;
+window.removeFile = removeFile;
+window.closeSuccessModal = closeSuccessModal;
