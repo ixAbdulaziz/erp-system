@@ -3222,8 +3222,29 @@
       }
       
       // Confirm delete invoice
-      function confirmDelete() {
-        if (!currentDeletingInvoice) return;
+      async function confirmDelete() {
+  if (!currentDeletingInvoice) return;
+  
+  try {
+    await invoicesAPI.delete(currentDeletingInvoice.id);
+    await loadData();
+    
+    // Check if supplier still has invoices
+    const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
+    if (supplierInvoices.length === 0) {
+      elements.invoicesSection.classList.add('hidden');
+      elements.supplierList.classList.remove('hidden');
+    } else {
+      filterInvoices(elements.invoiceSearch.value);
+    }
+    
+    elements.deleteModal.classList.remove('show');
+    currentDeletingInvoice = null;
+  } catch (error) {
+    console.error('Error deleting invoice:', error);
+    alert('خطأ في حذف الفاتورة');
+  }
+}
         
         // Remove invoice from array
         invoices = invoices.filter(inv => 
