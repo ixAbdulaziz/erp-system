@@ -1755,83 +1755,84 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       
       // Save purchase order
-      function savePurchaseOrder() {
-        const supplier = elements.poSupplier.value.trim();
-        const description = elements.poDescription.value.trim();
-        const price = parseFloat(elements.poPrice.value);
-        const pdfFile = elements.poPDF.files[0];
-        
-        if (!supplier || !description || !price) {
-          alert('يرجى ملء جميع الحقول المطلوبة');
-          return;
-        }
-        
-        function savePO(pdfData = null) {
-          if (currentEditingPO) {
-            // Edit existing PO
-            const index = purchaseOrders.findIndex(po => po.id === currentEditingPO.id);
-            if (index !== -1) {
-              purchaseOrders[index] = {
-                ...currentEditingPO,
-                supplier,
-                description,
-                price,
-                pdfFile: pdfData || currentEditingPO.pdfFile
-              };
-            }
-          } else {
-            // Add new PO
-            const newPO = {
-              id: generatePOId(),
-              supplier,
-              description,
-              price,
-              createdDate: new Date().toISOString().split('T')[0],
-              status: 'active',
-              pdfFile: pdfData
-            };
-            purchaseOrders.push(newPO);
-          }
-          
-          localStorage.setItem('purchaseOrders', JSON.stringify(purchaseOrders));
-          
-          // Update suppliers list for autocomplete
-          if (supplier && !suppliers.includes(supplier)) {
-            suppliers.push(supplier);
-            suppliers.sort();
-          }
-          
-          filteredPOs = [...purchaseOrders];
-          renderPurchaseOrders();
-          elements.poModal.classList.remove('show');
-        }
-        
-        // Handle PDF file if uploaded
-        if (pdfFile) {
-          if (pdfFile.type !== 'application/pdf') {
-            alert('يرجى اختيار ملف PDF صالح');
-            return;
-          }
-          
-          if (pdfFile.size > 10 * 1024 * 1024) { // 10MB limit
-            alert('حجم الملف كبير جداً. يرجى اختيار ملف أصغر من 10 ميجابايت');
-            return;
-          }
-          
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            const pdfData = {
-              name: pdfFile.name,
-              size: pdfFile.size,
-              dataUrl: e.target.result
-            };
-            savePO(pdfData);
-          };
-          reader.readAsDataURL(pdfFile);
-        } else {
-          savePO();
-        }
+      async function savePurchaseOrder() {
+  const supplier = elements.poSupplier.value.trim();
+  const description = elements.poDescription.value.trim();
+  const price = parseFloat(elements.poPrice.value);
+  const pdfFile = elements.poPDF.files[0];
+  
+  if (!supplier || !description || !price) {
+    alert('يرجى ملء جميع الحقول المطلوبة');
+    return;
+  }
+  
+  async function savePO(pdfData = null) {
+    try {
+      const poData = {
+        supplier_name: supplier,
+        description: description,
+        price: price,
+        pdf_file_data: pdfData?.dataUrl || null,
+        pdf_file_name: pdfData?.name || null,
+        pdf_file_size: pdfData?.size || null,
+        created_date: new Date().toISOString().split('T')[0]
+      };
+      
+      if (currentEditingPO) {
+        // تعديل أمر شراء موجود
+        await purchaseOrdersAPI.update(currentEditingPO.id, poData);
+      } else {
+        // إضافة أمر شراء جديد
+        poData.id = generatePOId();
+        await purchaseOrdersAPI.create(poData);
       }
+      
+      // إعادة تحميل البيانات
+      await loadData();
+      elements.poModal.classList.remove('show');
+      
+      // إظهار رسالة نجاح
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 success-message';
+      successMessage.textContent = currentEditingPO ? 'تم تحديث أمر الشراء بنجاح!' : 'تم إضافة أمر الشراء بنجاح!';
+      document.body.appendChild(successMessage);
+      
+      setTimeout(() => {
+        successMessage.remove();
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error saving purchase order:', error);
+      alert('حدث خطأ في حفظ أمر الشراء');
+    }
+  }
+  
+  // معالجة ملف PDF إذا تم رفعه
+  if (pdfFile) {
+    if (pdfFile.type !== 'application/pdf') {
+      alert('يرجى اختيار ملف PDF صالح');
+      return;
+    }
+    
+    if (pdfFile.size > 10 * 1024 * 1024) { // 10MB limit
+      alert('حجم الملف كبير جداً. يرجى اختيار ملف أصغر من 10 ميجابايت');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const pdfData = {
+        name: pdfFile.name,
+        size: pdfFile.size,
+        dataUrl: e.target.result
+      };
+      savePO(pdfData);
+    };
+    reader.readAsDataURL(pdfFile);
+  } else {
+    savePO();
+  }
+}
       
       // Link invoice to PO
       function linkInvoiceToPO() {
