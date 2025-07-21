@@ -1014,7 +1014,29 @@
       }
       
       // إضافة بيانات فواتير تجريبية إذا لم توجد فواتير
-      
+      if (invoices.length === 0) {
+        invoices = [
+          {
+            invoiceNumber: 'INV-001',
+            supplier: 'شركة الخليج للتجارة',
+            date: '2025-01-16',
+            totalAmount: 15000
+          },
+          {
+            invoiceNumber: 'INV-002',
+            supplier: 'مؤسسة التقنية المتقدمة',
+            date: '2025-01-22',
+            totalAmount: 8500
+          },
+          {
+            invoiceNumber: 'INV-003',
+            supplier: 'شركة النجوم للخدمات',
+            date: '2025-01-25',
+            totalAmount: 12300
+          }
+        ];
+        localStorage.setItem('invoices', JSON.stringify(invoices));
+      }
       
       // DOM Elements
       const elements = {
