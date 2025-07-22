@@ -1221,8 +1221,8 @@
     }
     
     // Initialize autocomplete
-    function initAutocomplete() {
-      loadSuppliers();
+    async function initAutocomplete() {
+     await loadSuppliers();
       
       // Input event handler
       elements.supplierInput.addEventListener('input', (e) => {
@@ -1715,8 +1715,8 @@
     }
 
     // Initialize on DOM load
-    document.addEventListener('DOMContentLoaded', () => {
-      initAutocomplete();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initAutocomplete();
       setInterval(createSparkles, 8000);
     });
   </script>
