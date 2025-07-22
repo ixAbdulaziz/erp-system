@@ -1001,55 +1001,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   // باقي الكود...
 });
       
-      // إضافة بيانات تجريبية إذا لم توجد أوامر شراء
-      if (purchaseOrders.length === 0) {
-        purchaseOrders = [
-          {
-            id: 'PO-001',
-            supplier: 'شركة الخليج للتجارة',
-            description: 'أجهزة كمبيوتر ومعدات مكتبية للفرع الجديد',
-            price: 45000,
-            createdDate: '2025-01-15',
-            status: 'active',
-            pdfFile: null
-          },
-          {
-            id: 'PO-002',
-            supplier: 'مؤسسة التقنية المتقدمة',
-            description: 'خدمات صيانة وتطوير البرمجيات',
-            price: 22000,
-            createdDate: '2025-01-20',
-            status: 'active',
-            pdfFile: null
-          }
-        ];
-        localStorage.setItem('purchaseOrders', JSON.stringify(purchaseOrders));
-      }
-      
-      // إضافة بيانات فواتير تجريبية إذا لم توجد فواتير
-      if (invoices.length === 0) {
-        invoices = [
-          {
-            invoiceNumber: 'INV-001',
-            supplier: 'شركة الخليج للتجارة',
-            date: '2025-01-16',
-            totalAmount: 15000
-          },
-          {
-            invoiceNumber: 'INV-002',
-            supplier: 'مؤسسة التقنية المتقدمة',
-            date: '2025-01-22',
-            totalAmount: 8500
-          },
-          {
-            invoiceNumber: 'INV-003',
-            supplier: 'شركة النجوم للخدمات',
-            date: '2025-01-25',
-            totalAmount: 12300
-          }
-        ];
-        localStorage.setItem('invoices', JSON.stringify(invoices));
-      }
+      let purchaseOrders = [];
+let invoices = [];
+let suppliers = [];
+
+// تحميل البيانات من قاعدة البيانات
+async function loadData() {
+  try {
+    purchaseOrders = await purchaseOrdersAPI.getAll();
+    invoices = await invoicesAPI.getAll();
+    suppliers = await suppliersAPI.getAll();
+    
+    // تحديث قائمة الموردين للـ autocomplete
+    const supplierNames = suppliers.map(s => s.name);
+    const uniqueSuppliers = [...new Set([...supplierNames])].sort();
+    suppliers = uniqueSuppliers;
+    
+    filteredPOs = [...purchaseOrders];
+    renderPurchaseOrders();
+  } catch (error) {
+    console.error('Error loading data:', error);
+  }
+}
+
+// استدعاء تحميل البيانات عند بدء الصفحة
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadData();
+  // باقي الكود...
+});
       
       // DOM Elements
       const elements = {
