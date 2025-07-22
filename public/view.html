@@ -2325,17 +2325,25 @@ loadData();
         elements.deletePaymentModal.classList.add('show');
       };
 
-      function confirmDeletePayment() {
-        if (!currentDeletingPayment) return;
-        
-        payments = payments.filter(pay => pay.id !== currentDeletingPayment.id);
-        localStorage.setItem('payments', JSON.stringify(payments));
-        
-        elements.deletePaymentModal.classList.remove('show');
-        renderPaymentsTable();
-        updatePaymentStats();
-        currentDeletingPayment = null;
-      }
+      async function confirmDeletePayment() {
+  if (!currentDeletingPayment) return;
+  
+  try {
+    await paymentsAPI.delete(currentDeletingPayment.id);
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    
+    elements.deletePaymentModal.classList.remove('show');
+    renderPaymentsTable();
+    updatePaymentStats();
+    currentDeletingPayment = null;
+    
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    alert('حدث خطأ في حذف الدفعة');
+  }
+}
 
       // Formatting utility
       function formatCurrency(amount) {
@@ -3103,58 +3111,57 @@ loadData();
         }, 2000);
       }
       
-      // Update invoice
-      function updateInvoice() {
-        if (!currentEditingInvoice) return;
-        
-        const updatedInvoice = {
-          ...currentEditingInvoice,
-          invoiceNumber: elements.editInvoiceNumber.value,
-          date: elements.editInvoiceDate.value,
-          type: elements.editInvoiceType.value,
-          category: elements.editInvoiceCategory.value,
-          amountBeforeTax: parseFloat(elements.editAmountBeforeTax.value),
-          taxAmount: parseFloat(elements.editTaxAmount.value),
-          supplier: elements.editSupplier.value,
-          notes: elements.editNotes.value.trim(),
-          totalAmount: parseFloat(elements.editAmountBeforeTax.value) + parseFloat(elements.editTaxAmount.value),
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Update invoice in array
-        const index = invoices.findIndex(inv => 
-          (inv.id || `${inv.invoiceNumber}-${inv.date}-${inv.supplier}`) === 
-          (currentEditingInvoice.id || `${currentEditingInvoice.invoiceNumber}-${currentEditingInvoice.date}-${currentEditingInvoice.supplier}`)
-        );
-        
-        if (index !== -1) {
-          invoices[index] = updatedInvoice;
-          localStorage.setItem('invoices', JSON.stringify(invoices));
-          
-          // Refresh the view if supplier changed
-          if (updatedInvoice.supplier !== currentSupplier) {
-            elements.invoicesSection.classList.add('hidden');
-            elements.supplierList.classList.remove('hidden');
-            elements.supplierSearch.value = ''; // Reset search
-            renderSuppliers();
-          } else {
-            // Refresh current supplier view with current search and sort
-            const searchTerm = elements.invoiceSearch.value;
-            const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
-            if (!searchTerm.trim()) {
-              filteredInvoices = supplierInvoices;
-            } else {
-              filteredInvoices = supplierInvoices.filter(inv => 
-                inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
-              );
-            }
-            
-            // Apply current sort if any
-            if (currentSort.column) {
-              sortInvoices(currentSort.column, currentSort.direction);
-            } else {
-              renderFilteredInvoices();
-            }
+      // من السطر 3115
+async function updateInvoice() {  // إضافة async
+  if (!currentEditingInvoice) return;
+  
+  try {
+    const updatedInvoice = {
+      invoice_number: elements.editInvoiceNumber.value,
+      date: elements.editInvoiceDate.value,
+      type: elements.editInvoiceType.value,
+      category: elements.editInvoiceCategory.value,
+      amount_before_tax: parseFloat(elements.editAmountBeforeTax.value),
+      tax_amount: parseFloat(elements.editTaxAmount.value),
+      supplier_name: elements.editSupplier.value,
+      notes: elements.editNotes.value.trim(),
+      total_amount: parseFloat(elements.editAmountBeforeTax.value) + parseFloat(elements.editTaxAmount.value)
+    };
+    
+    // استخدام API بدلاً من التحديث المحلي
+    await invoicesAPI.update(currentEditingInvoice.id, updatedInvoice);
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    
+    // تحديث العرض
+    if (updatedInvoice.supplier_name !== currentSupplier) {
+      elements.invoicesSection.classList.add('hidden');
+      elements.supplierList.classList.remove('hidden');
+      renderSuppliers();
+    } else {
+      showInvoices(currentSupplier);
+    }
+    
+    elements.editInvoiceModal.classList.remove('show');
+    
+    // إظهار رسالة نجاح
+    const originalText = elements.updateInvoiceBtn.innerHTML;
+    elements.updateInvoiceBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      تم التحديث
+    `;
+    setTimeout(() => {
+      elements.updateInvoiceBtn.innerHTML = originalText;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    alert('حدث خطأ في تحديث الفاتورة');
+  }
+}
             
             // Update payment stats
             updatePaymentStats();
