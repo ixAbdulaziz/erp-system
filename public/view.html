@@ -1937,116 +1937,6 @@ async function loadData() {
 // استدعاء تحميل البيانات عند بدء الصفحة
 loadData();
         
-        // إضافة بيانات تجريبية إذا لم توجد بيانات
-        if (invoices.length === 0) {
-          console.log('📦 لا توجد بيانات، جاري إضافة بيانات تجريبية...');
-          invoices = [
-            {
-              id: 'inv001',
-              invoiceNumber: 'INV-2024-001',
-              date: '2024-01-15',
-              type: 'فاتورة شراء',
-              category: 'مكتبية',
-              supplier: 'شركة المكتب الحديث',
-              amountBeforeTax: 1000,
-              taxAmount: 150,
-              totalAmount: 1150,
-              notes: 'أدوات مكتبية متنوعة للمكتب الرئيسي',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'inv002',
-              invoiceNumber: 'INV-2024-002',
-              date: '2024-01-18',
-              type: 'فاتورة خدمة',
-              category: 'تقنية',
-              supplier: 'مؤسسة التقنية المتطورة',
-              amountBeforeTax: 2500,
-              taxAmount: 375,
-              totalAmount: 2875,
-              notes: 'صيانة أجهزة الكمبيوتر والشبكات',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'inv003',
-              invoiceNumber: 'INV-2024-003',
-              date: '2024-01-20',
-              type: 'فاتورة شراء',
-              category: 'أثاث',
-              supplier: 'معرض الأثاث المميز',
-              amountBeforeTax: 5000,
-              taxAmount: 750,
-              totalAmount: 5750,
-              notes: 'كراسي وطاولات مكتبية جديدة',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'inv004',
-              invoiceNumber: 'INV-2024-004',
-              date: '2024-01-22',
-              type: 'فاتورة شراء',
-              category: 'مكتبية',
-              supplier: 'شركة المكتب الحديث',
-              amountBeforeTax: 800,
-              taxAmount: 120,
-              totalAmount: 920,
-              notes: 'طابعات وحبر للأقسام',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'inv005',
-              invoiceNumber: 'INV-2024-005',
-              date: '2024-01-25',
-              type: 'فاتورة خدمة',
-              category: 'صيانة',
-              supplier: 'مركز الصيانة الشامل',
-              amountBeforeTax: 1200,
-              taxAmount: 180,
-              totalAmount: 1380,
-              notes: 'صيانة دورية لأجهزة التكييف',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'inv006',
-              invoiceNumber: 'INV-2024-006',
-              date: '2024-01-28',
-              type: 'فاتورة شراء',
-              category: 'تقنية',
-              supplier: 'مؤسسة التقنية المتطورة',
-              amountBeforeTax: 3000,
-              taxAmount: 450,
-              totalAmount: 3450,
-              notes: 'أجهزة كمبيوتر محمولة جديدة',
-              createdAt: new Date().toISOString()
-            }
-          ];
-          localStorage.setItem('invoices', JSON.stringify(invoices));
-          console.log('✅ تم إضافة البيانات التجريبية بنجاح');
-        }
-
-        // إضافة بيانات مدفوعات تجريبية
-        if (payments.length === 0) {
-          payments = [
-            {
-              id: 'pay001',
-              supplier: 'شركة المكتب الحديث',
-              amount: 1000,
-              date: '2024-01-20',
-              notes: 'دفعة أولى من فواتير يناير',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'pay002',
-              supplier: 'مؤسسة التقنية المتطورة',
-              amount: 2000,
-              date: '2024-01-25',
-              notes: 'دفعة جزئية لخدمات الصيانة',
-              createdAt: new Date().toISOString()
-            }
-          ];
-          localStorage.setItem('payments', JSON.stringify(payments));
-        }
-        
         let currentSupplier = '';
         let currentEditingInvoice = null;
         let currentDeletingInvoice = null;
@@ -2358,47 +2248,50 @@ loadData();
         elements.editPaymentModal.classList.add('show');
       };
 
-      function updatePayment() {
-        if (!currentEditingPayment) return;
-        
-        const amount = parseFloat(elements.editPaymentAmount.value);
-        const date = elements.editPaymentDate.value;
-        const notes = elements.editPaymentNotes.value.trim();
-        
-        if (!amount || amount <= 0 || !date) {
-          alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
-          return;
-        }
-        
-        const index = payments.findIndex(pay => pay.id === currentEditingPayment.id);
-        if (index !== -1) {
-          payments[index] = {
-            ...currentEditingPayment,
-            amount: amount,
-            date: date,
-            notes: notes,
-            updatedAt: new Date().toISOString()
-          };
-          
-          localStorage.setItem('payments', JSON.stringify(payments));
-          
-          elements.editPaymentModal.classList.remove('show');
-          renderPaymentsTable();
-          updatePaymentStats();
-          
-          // Show success feedback
-          const originalText = elements.updatePaymentBtn.innerHTML;
-          elements.updatePaymentBtn.innerHTML = `
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            تم التحديث
-          `;
-          setTimeout(() => {
-            elements.updatePaymentBtn.innerHTML = originalText;
-          }, 2000);
-        }
-      }
+      async function updatePayment() {  // إضافة async
+  if (!currentEditingPayment) return;
+  
+  const amount = parseFloat(elements.editPaymentAmount.value);
+  const date = elements.editPaymentDate.value;
+  const notes = elements.editPaymentNotes.value.trim();
+  
+  if (!amount || amount <= 0 || !date) {
+    alert('يرجى إدخال مبلغ صحيح وتاريخ صحيح');
+    return;
+  }
+  
+  try {
+    // استخدام API بدلاً من localStorage
+    await paymentsAPI.update(currentEditingPayment.id, {
+      amount: amount,
+      date: date,
+      notes: notes
+    });
+    
+    // إعادة تحميل البيانات من قاعدة البيانات
+    await loadData();
+    
+    elements.editPaymentModal.classList.remove('show');
+    renderPaymentsTable();
+    updatePaymentStats();
+    
+    // Show success feedback
+    const originalText = elements.updatePaymentBtn.innerHTML;
+    elements.updatePaymentBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      تم التحديث
+    `;
+    setTimeout(() => {
+      elements.updatePaymentBtn.innerHTML = originalText;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error updating payment:', error);
+    alert('حدث خطأ في تحديث الدفعة');
+  }
+}
 
       window.deletePayment = function(paymentId) {
         const payment = payments.find(pay => pay.id === paymentId);
@@ -3148,28 +3041,47 @@ loadData();
       }
       
       // Save supplier name
-      function saveSupplier() {
-        const newName = elements.newSupplierName.value.trim();
-        if (!newName || newName === currentSupplier) {
-          elements.editModal.classList.remove('show');
-          return;
-        }
-        
-        // Update invoices with new supplier name
-        invoices = invoices.map(inv => 
-          inv.supplier === currentSupplier ? {...inv, supplier: newName} : inv
-        );
-        
-        // Update payments with new supplier name
-        payments = payments.map(pay => 
-          pay.supplier === currentSupplier ? {...pay, supplier: newName} : pay
-        );
-        
-        localStorage.setItem('invoices', JSON.stringify(invoices));
-        localStorage.setItem('payments', JSON.stringify(payments));
-        currentSupplier = newName;
-        elements.supplierTitle.textContent = `فواتير ومدفوعات: ${newName}`;
-        elements.editModal.classList.remove('show');
+      async function saveSupplier() {
+  const newName = elements.newSupplierName.value.trim();
+  if (!newName || newName === currentSupplier) {
+    elements.editModal.classList.remove('show');
+    return;
+  }
+  
+  try {
+    // تحديث اسم المورد في قاعدة البيانات
+    const supplier = suppliers.find(s => s.name === currentSupplier);
+    if (supplier) {
+      await suppliersAPI.update(supplier.id, { name: newName });
+    }
+    
+    // إعادة تحميل البيانات
+    await loadData();
+    
+    currentSupplier = newName;
+    elements.supplierTitle.textContent = `فواتير ومدفوعات: ${newName}`;
+    elements.editModal.classList.remove('show');
+    
+    // تحديث العرض
+    showInvoices(newName);
+    
+    // إظهار رسالة نجاح
+    const originalText = elements.saveSupplierBtn.innerHTML;
+    elements.saveSupplierBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+      تم الحفظ
+    `;
+    setTimeout(() => {
+      elements.saveSupplierBtn.innerHTML = originalText;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error updating supplier:', error);
+    alert('حدث خطأ في تحديث اسم المورد');
+  }
+}
         
         // Update filtered invoices with new supplier name
         filteredInvoices = filteredInvoices.map(inv => ({...inv, supplier: newName}));
