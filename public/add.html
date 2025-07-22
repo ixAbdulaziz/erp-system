@@ -1039,23 +1039,21 @@
     let searchTimeout;
     
     // Load suppliers from localStorage
-    function loadSuppliers() {
-      const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-      const uniqueSuppliers = [...new Set(invoices.map(inv => inv.supplier?.trim()).filter(Boolean))];
-      
-      // Add some sample suppliers for demonstration
-      const sampleSuppliers = [
-        'شركة الأتقان للسفر والسياحة',
-        'مؤسسة البناء الحديث',
-        'شركة التقنيات المتقدمة',
-        'مكتب الاستشارات الهندسية',
-        'شركة النقل السريع',
-        'مؤسسة الخدمات الطبية',
-        'شركة الإعلانات الرقمية',
-        'مكتب المحاماة والاستشارات القانونية',
-        'شركة الصيانة الشاملة',
-        'مؤسسة التعليم والتدريب'
-      ];
+    async function loadSuppliers() {
+  try {
+    const invoices = await invoicesAPI.getAll();
+    const uniqueSuppliers = [...new Set(invoices.map(inv => inv.supplier_name?.trim()).filter(Boolean))];
+    
+    // إضافة موردين من قاعدة البيانات
+    const dbSuppliers = await suppliersAPI.getAll();
+    const dbSupplierNames = dbSuppliers.map(s => s.name);
+    
+    suppliers = [...new Set([...uniqueSuppliers, ...dbSupplierNames])].sort();
+  } catch (error) {
+    console.error('Error loading suppliers:', error);
+    suppliers = [];
+  }
+}
       
       suppliers = [...new Set([...uniqueSuppliers, ...sampleSuppliers])].sort();
     }
