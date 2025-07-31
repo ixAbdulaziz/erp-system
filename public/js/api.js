@@ -30,45 +30,45 @@ const apiRequest = async (endpoint, method = 'GET', data = null) => {
 
 // Suppliers API
 const suppliersAPI = {
-  getAll: () => apiRequest('/suppliers'),
-  create: (data) => apiRequest('/suppliers', 'POST', data),
-  update: (id, data) => apiRequest(`/suppliers/${id}`, 'PUT', data),
-  togglePin: (id, isPinned) => apiRequest(`/suppliers/${id}/pin`, 'PATCH', { is_pinned: isPinned })
+  getAll: () => apiRequest('/api/suppliers'),
+  create: (data) => apiRequest('/api/suppliers', 'POST', data),
+  update: (id, data) => apiRequest(`/api/suppliers/${id}`, 'PUT', data),
+  togglePin: (id, isPinned) => apiRequest(`/api/suppliers/${id}/pin`, 'PATCH', { is_pinned: isPinned })
 };
 
 // Invoices API
 const invoicesAPI = {
   getAll: (supplierId = null) => {
-    const endpoint = supplierId ? `/invoices?supplier_id=${supplierId}` : '/invoices';
+    const endpoint = supplierId ? `/api/invoices?supplier_id=${supplierId}` : '/api/invoices';
     return apiRequest(endpoint);
   },
-  create: (data) => apiRequest('/invoices', 'POST', data),
-  update: (id, data) => apiRequest(`/invoices/${id}`, 'PUT', data),
-  delete: (id) => apiRequest(`/invoices/${id}`, 'DELETE')
+  create: (data) => apiRequest('/api/invoices', 'POST', data),
+  update: (id, data) => apiRequest(`/api/invoices/${id}`, 'PUT', data),
+  delete: (id) => apiRequest(`/api/invoices/${id}`, 'DELETE')
 };
 
 // Payments API
 const paymentsAPI = {
   getAll: (supplierId = null) => {
-    const endpoint = supplierId ? `/payments?supplier_id=${supplierId}` : '/payments';
+    const endpoint = supplierId ? `/api/payments?supplier_id=${supplierId}` : '/api/payments';
     return apiRequest(endpoint);
   },
-  create: (data) => apiRequest('/payments', 'POST', data),
-  update: (id, data) => apiRequest(`/payments/${id}`, 'PUT', data),
-  delete: (id) => apiRequest(`/payments/${id}`, 'DELETE')
+  create: (data) => apiRequest('/api/payments', 'POST', data),
+  update: (id, data) => apiRequest(`/api/payments/${id}`, 'PUT', data),
+  delete: (id) => apiRequest(`/api/payments/${id}`, 'DELETE')
 };
 
 // Purchase Orders API
 const purchaseOrdersAPI = {
-  getAll: () => apiRequest('/purchase-orders'),
-  create: (data) => apiRequest('/purchase-orders', 'POST', data),
-  update: (id, data) => apiRequest(`/purchase-orders/${id}`, 'PUT', data),
-  delete: (id) => apiRequest(`/purchase-orders/${id}`, 'DELETE')
+  getAll: () => apiRequest('/api/purchase-orders'),
+  create: (data) => apiRequest('/api/purchase-orders', 'POST', data),
+  update: (id, data) => apiRequest(`/api/purchase-orders/${id}`, 'PUT', data),
+  delete: (id) => apiRequest(`/api/purchase-orders/${id}`, 'DELETE')
 };
 
 // Statistics API
 const statisticsAPI = {
-  getAll: () => apiRequest('/statistics')
+  getAll: () => apiRequest('/api/statistics')
 };
 
 // Storage Migration Functions
