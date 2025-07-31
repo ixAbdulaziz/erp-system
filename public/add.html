@@ -1039,26 +1039,35 @@
     let searchTimeout;
     
     // Load suppliers from localStorage
-    async function loadSuppliers() {
+    
+async function loadSuppliers() {
   try {
-    const invoices = await invoicesAPI.getAll();
-    const uniqueSuppliers = [...new Set(invoices.map(inv => inv.supplier_name?.trim()).filter(Boolean))];
-    
-    // إضافة موردين من قاعدة البيانات
-    const dbSuppliers = await suppliersAPI.getAll();
-    const dbSupplierNames = dbSuppliers.map(s => s.name);
-    
-    suppliers = [...new Set([...uniqueSuppliers, ...dbSupplierNames])].sort();
+    // جلب الموردين من الفواتير السابقة
+    let invoiceSuppliers = [];
+    try {
+      const invoices = await invoicesAPI.getAll();
+      invoiceSuppliers = [...new Set(invoices.map(inv => inv.supplier_name?.trim()).filter(Boolean))];
+    } catch (e) {
+      console.warn('Failed to load invoices for supplier names', e);
+    }
+
+    // جلب الموردين من قاعدة البيانات
+    let dbSupplierNames = [];
+    try {
+      const dbSuppliers = await suppliersAPI.getAll();
+      dbSupplierNames = dbSuppliers.map(s => s.name);
+    } catch (e) {
+      console.warn('Failed to load suppliers from DB', e);
+    }
+
+    suppliers = [...new Set([...invoiceSuppliers, ...dbSupplierNames])].sort();
   } catch (error) {
     console.error('Error loading suppliers:', error);
     suppliers = [];
   }
 }
-      
-      suppliers = [...new Set([...uniqueSuppliers, ...sampleSuppliers])].sort();
-    }
-    
-    // Fuzzy search function
+
+// Fuzzy search function
     function fuzzySearch(query, text) {
       const queryLower = query.toLowerCase();
       const textLower = text.toLowerCase();
