@@ -603,9 +603,9 @@
   <script>
     // Formatting utilities
     const formatCurrency = num => !num ? '0 ر.س' : new Intl.NumberFormat('en-US').format(num) + ' ر.س';
-    const loadInvoices = () => JSON.parse(localStorage.getItem('invoices') || '[]');
-    const loadPurchaseOrders = () => JSON.parse(localStorage.getItem('purchaseOrders') || '[]');
-    const loadPayments = () => JSON.parse(localStorage.getItem('payments') || '[]');
+    const loadInvoices = () => JSON.parse( || '[]');
+    const loadPurchaseOrders = () => JSON.parse( || '[]');
+    const loadPayments = () => JSON.parse( || '[]');
 
     // Calculate outstanding amounts per supplier (invoices - payments)
     function calculateOutstandingAmounts() {
