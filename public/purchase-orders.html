@@ -1061,8 +1061,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Load suppliers from localStorage (same as add.html)
       function loadSuppliers() {
-        const savedInvoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-        const savedPOs = JSON.parse(localStorage.getItem('purchaseOrders') || '[]');
+        const savedInvoices = JSON.parse( || '[]');
+        const savedPOs = JSON.parse( || '[]');
         
         // Get unique suppliers from both invoices and purchase orders
         const invoiceSuppliers = savedInvoices.map(inv => inv.supplier?.trim()).filter(Boolean);
@@ -1917,8 +1917,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Remove PO
         purchaseOrders = purchaseOrders.filter(po => po.id !== currentDeletingPO);
         
-        localStorage.setItem('purchaseOrders', JSON.stringify(purchaseOrders));
-        localStorage.setItem('invoices', JSON.stringify(invoices));
+        );
+        );
         
         filteredPOs = [...purchaseOrders];
         renderPurchaseOrders();
