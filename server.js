@@ -8,37 +8,44 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '12mb' }));
 
-// Serve static frontend
+// Static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
-// Setup DB pool, prefer full URL if provided
-let pool;
-if (process.env.MYSQL_URL) {
-  pool = mysql.createPool(process.env.MYSQL_URL);
-} else {
-  pool = mysql.createPool({
-    host: process.env.MYSQLHOST || 'localhost',
-    user: process.env.MYSQLUSER || 'root',
-    password: process.env.MYSQLPASSWORD || '',
-    database: process.env.MYSQLDATABASE || 'erp_system',
-    port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT) : 3306,
-    waitForConnections: true,
-    connectionLimit: 10
-  });
+// helper to generate simple IDs
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-// Initialize DB schema (migration)
+// create connection pool
+const pool = mysql.createPool({
+  host: process.env.MYSQLHOST || 'localhost',
+  user: process.env.MYSQLUSER || 'root',
+  password: process.env.MYSQLPASSWORD || '',
+  database: process.env.MYSQLDATABASE || 'erp_system',
+  port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT, 10) : 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+});
 
+// initialize schema
 async function initDb() {
-  const conn = await pool.getConnection();
   try {
-    // invoices table base definition (will not modify existing columns)
-    await conn.query(`
+    // suppliers
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB;
+    `);
+
+    // invoices
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS invoices (
         id VARCHAR(50) PRIMARY KEY,
         invoice_number VARCHAR(100),
@@ -58,113 +65,43 @@ async function initDb() {
       ) ENGINE=INNODB;
     `);
 
-    // ensure critical columns exist (for older existing table missing some)
-    const expectedInvoiceCols = {
-      invoice_number: 'VARCHAR(100)',
-      supplier_name: 'VARCHAR(255)',
-      type: 'VARCHAR(100)',
-      category: 'VARCHAR(100)',
-      date: 'DATE',
-      amount_before_tax: 'DECIMAL(15,2)',
-      tax_amount: 'DECIMAL(15,2)',
-      total_amount: 'DECIMAL(15,2)',
-      notes: 'TEXT',
-      file_data: 'LONGTEXT',
-      file_type: 'VARCHAR(100)',
-      file_name: 'VARCHAR(255)',
-      file_size: 'BIGINT',
-      created_at: 'DATETIME DEFAULT CURRENT_TIMESTAMP'
-    };
-    // fetch existing columns for invoices
-    const [colsRows] = await conn.query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'invoices'`
-    );
-    const existingCols = new Set(colsRows.map(r => r.COLUMN_NAME));
-    for (const [col, definition] of Object.entries(expectedInvoiceCols)) {
-      if (!existingCols.has(col)) {
-        await conn.query(`ALTER TABLE invoices ADD COLUMN ${col} ${definition}`);
-      }
-    }
-
-    // suppliers table
-    await conn.query(`
-      CREATE TABLE IF NOT EXISTS suppliers (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=INNODB;
-    `);
-    // purchase_orders table
-    await conn.query(`
+    // purchase_orders
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id VARCHAR(50) PRIMARY KEY,
         order_number VARCHAR(100),
         supplier_name VARCHAR(255),
-        status VARCHAR(50),
+        status VARCHAR(100),
         total_amount DECIMAL(15,2),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
-    // payments table
-    await conn.query(`
+
+    // payments
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id VARCHAR(50) PRIMARY KEY,
         invoice_id VARCHAR(50),
         amount DECIMAL(15,2),
         method VARCHAR(100),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT fk_payment_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
 
-    // create or replace view supplier_stats
-    try {
-      await conn.query(`
-        CREATE OR REPLACE VIEW supplier_stats AS
-        SELECT 
-          supplier_name,
-          COUNT(*) AS invoices_count,
-          SUM(total_amount) AS total_spent
-        FROM invoices
-        GROUP BY supplier_name;
-      `);
-    } catch (err) {
-      console.warn('Warning: could not create view supplier_stats:', err.message);
-    }
-  } finally {
-    conn.release();
-  }
-}
-
-
-initDb().catch(err => {
-  console.error('Failed initializing database:', err);
-  process.exit(1);
-});
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-// Stats
-app.get('/api/statistics', async (req, res) => {
-  try {
-    const [[suppliersCount]] = await pool.query('SELECT COUNT(DISTINCT supplier_name) AS suppliers_count FROM invoices');
-    const [[invoicesCount]] = await pool.query('SELECT COUNT(*) AS invoices_count FROM invoices');
-    const [[ordersCount]] = await pool.query('SELECT COUNT(*) AS orders_count FROM purchase_orders');
-    const [[paymentsCount]] = await pool.query('SELECT COUNT(*) AS payments_count FROM payments');
-
-    res.json({
-      suppliers_count: suppliersCount.suppliers_count || 0,
-      invoices_count: invoicesCount.invoices_count || 0,
-      orders_count: ordersCount.orders_count || 0,
-      payments_count: paymentsCount.payments_count || 0
-    });
+    // create or replace view
+    await pool.query(`
+      CREATE OR REPLACE VIEW supplier_stats AS
+      SELECT supplier_name,
+             COUNT(*) AS invoices_count,
+             SUM(total_amount) AS total_spent
+      FROM invoices
+      GROUP BY supplier_name;
+    `);
   } catch (err) {
-    console.error('Statistics error:', err);
-    res.status(500).json({ error: 'Failed to get statistics' });
+    console.error('Failed initializing database:', err);
+    throw err;
   }
-});
+}
 
 // Suppliers endpoints
 app.get('/api/suppliers', async (req, res) => {
@@ -221,12 +158,12 @@ app.post('/api/invoices', async (req, res) => {
       file_data,
       file_type,
       file_name,
-      file_size
+      file_size,
     } = invoice;
 
     await pool.query(
       `INSERT INTO invoices 
-       (id, invoice_number, supplier_name, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size)
+         (id, invoice_number, supplier_name, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE 
          invoice_number=VALUES(invoice_number),
@@ -243,7 +180,22 @@ app.post('/api/invoices', async (req, res) => {
          file_name=VALUES(file_name),
          file_size=VALUES(file_size)
       `,
-      [id, invoice_number, supplier_name, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size]
+      [
+        id,
+        invoice_number,
+        supplier_name,
+        type,
+        category,
+        date,
+        amount_before_tax,
+        tax_amount,
+        total_amount,
+        notes,
+        file_data,
+        file_type,
+        file_name,
+        file_size,
+      ]
     );
     res.json({ success: true, id });
   } catch (err) {
@@ -319,6 +271,14 @@ app.post('/api/payments', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// start
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Could not initialize DB, exiting.', err);
+    process.exit(1);
+  });
