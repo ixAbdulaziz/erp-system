@@ -16,16 +16,16 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
-// Database pool with fallback: first try connection string, then individual vars
+// Database pool
 let pool;
 if (process.env.MYSQL_URL) {
   pool = mysql.createPool(process.env.MYSQL_URL);
 } else {
   pool = mysql.createPool({
     host: process.env.MYSQLHOST || 'localhost',
-    user: process.env.MYSQLUSER || 'root',
-    password: process.env.MYSQLPASSWORD || '',
-    database: process.env.MYSQLDATABASE || 'erp_system',
+    user: process.env.MYSQLUSER || process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || 'erp_system',
     port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT) : 3306,
     waitForConnections: true,
     connectionLimit: 10
@@ -36,14 +36,14 @@ if (process.env.MYSQL_URL) {
 async function initDb() {
   const conn = await pool.getConnection();
   try {
-    await conn.query(\`
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS suppliers (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
-    \`);
-    await conn.query(\`
+    `);
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS invoices (
         id VARCHAR(50) PRIMARY KEY,
         invoice_number VARCHAR(100),
@@ -61,8 +61,8 @@ async function initDb() {
         file_size BIGINT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
-    \`);
-    await conn.query(\`
+    `);
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id VARCHAR(50) PRIMARY KEY,
         order_number VARCHAR(100),
@@ -71,8 +71,8 @@ async function initDb() {
         total_amount DECIMAL(15,2),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
-    \`);
-    await conn.query(\`
+    `);
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id VARCHAR(50) PRIMARY KEY,
         invoice_id VARCHAR(50),
@@ -81,8 +81,8 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
       ) ENGINE=INNODB;
-    \`);
-    await conn.query(\`
+    `);
+    await conn.query(`
       CREATE OR REPLACE VIEW supplier_stats AS
       SELECT 
         supplier_name,
@@ -90,7 +90,7 @@ async function initDb() {
         SUM(total_amount) AS total_spent
       FROM invoices
       GROUP BY supplier_name;
-    \`);
+    `);
   } finally {
     conn.release();
   }
@@ -108,16 +108,16 @@ function genId() {
 // Statistics endpoint
 app.get('/api/statistics', async (req, res) => {
   try {
-    const [[suppliersCount]] = await pool.query('SELECT COUNT(DISTINCT supplier_name) AS suppliers_count FROM invoices');
-    const [[invoicesCount]] = await pool.query('SELECT COUNT(*) AS invoices_count FROM invoices');
-    const [[ordersCount]] = await pool.query('SELECT COUNT(*) AS orders_count FROM purchase_orders');
-    const [[paymentsCount]] = await pool.query('SELECT COUNT(*) AS payments_count FROM payments');
+    const [[{ suppliers_count }]] = await pool.query('SELECT COUNT(DISTINCT supplier_name) AS suppliers_count FROM invoices');
+    const [[{ invoices_count }]] = await pool.query('SELECT COUNT(*) AS invoices_count FROM invoices');
+    const [[{ orders_count }]] = await pool.query('SELECT COUNT(*) AS orders_count FROM purchase_orders');
+    const [[{ payments_count }]] = await pool.query('SELECT COUNT(*) AS payments_count FROM payments');
 
     res.json({
-      suppliers_count: suppliersCount.suppliers_count || 0,
-      invoices_count: invoicesCount.invoices_count || 0,
-      orders_count: ordersCount.orders_count || 0,
-      payments_count: paymentsCount.payments_count || 0
+      suppliers_count: suppliers_count || 0,
+      invoices_count: invoices_count || 0,
+      orders_count: orders_count || 0,
+      payments_count: payments_count || 0
     });
   } catch (err) {
     console.error('Statistics error:', err);
@@ -184,7 +184,7 @@ app.post('/api/invoices', async (req, res) => {
     } = invoice;
 
     await pool.query(
-      \`INSERT INTO invoices 
+      `INSERT INTO invoices 
        (id, invoice_number, supplier_name, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE 
@@ -201,7 +201,7 @@ app.post('/api/invoices', async (req, res) => {
          file_type=VALUES(file_type),
          file_name=VALUES(file_name),
          file_size=VALUES(file_size)
-      \`,
+      `,
       [id, invoice_number, supplier_name, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size]
     );
     res.json({ success: true, id });
@@ -228,14 +228,14 @@ app.post('/api/purchase-orders', async (req, res) => {
     if (!order.id) order.id = genId();
     const { id, order_number, supplier_name, status, total_amount } = order;
     await pool.query(
-      \`INSERT INTO purchase_orders (id, order_number, supplier_name, status, total_amount)
+      `INSERT INTO purchase_orders (id, order_number, supplier_name, status, total_amount)
        VALUES (?,?,?,?,?)
        ON DUPLICATE KEY UPDATE
          order_number=VALUES(order_number),
          supplier_name=VALUES(supplier_name),
          status=VALUES(status),
          total_amount=VALUES(total_amount)
-      \`,
+      `,
       [id, order_number, supplier_name, status, total_amount]
     );
     res.json({ success: true, id });
@@ -262,13 +262,13 @@ app.post('/api/payments', async (req, res) => {
     if (!payment.id) payment.id = genId();
     const { id, invoice_id, amount, method } = payment;
     await pool.query(
-      \`INSERT INTO payments (id, invoice_id, amount, method)
+      `INSERT INTO payments (id, invoice_id, amount, method)
        VALUES (?,?,?,?)
        ON DUPLICATE KEY UPDATE
          invoice_id=VALUES(invoice_id),
          amount=VALUES(amount),
          method=VALUES(method)
-      \`,
+      `,
       [id, invoice_id, amount, method]
     );
     res.json({ success: true, id });
@@ -279,5 +279,5 @@ app.post('/api/payments', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(\`Server running on port \${PORT}\`);
+  console.log(`Server running on port ${PORT}`);
 });
