@@ -33,10 +33,11 @@ if (process.env.MYSQL_URL) {
 }
 
 // Initialize DB schema (migration)
+
 async function initDb() {
   const conn = await pool.getConnection();
   try {
-    // invoices table (base definition)
+    // invoices table base definition (will not modify existing columns)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS invoices (
         id VARCHAR(50) PRIMARY KEY,
@@ -56,9 +57,36 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
-    // ensure any missing columns (in case table pre-existed with different schema)
-    
-    // suppliers
+
+    // ensure critical columns exist (for older existing table missing some)
+    const expectedInvoiceCols = {
+      invoice_number: 'VARCHAR(100)',
+      supplier_name: 'VARCHAR(255)',
+      type: 'VARCHAR(100)',
+      category: 'VARCHAR(100)',
+      date: 'DATE',
+      amount_before_tax: 'DECIMAL(15,2)',
+      tax_amount: 'DECIMAL(15,2)',
+      total_amount: 'DECIMAL(15,2)',
+      notes: 'TEXT',
+      file_data: 'LONGTEXT',
+      file_type: 'VARCHAR(100)',
+      file_name: 'VARCHAR(255)',
+      file_size: 'BIGINT',
+      created_at: 'DATETIME DEFAULT CURRENT_TIMESTAMP'
+    };
+    // fetch existing columns for invoices
+    const [colsRows] = await conn.query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE table_schema = DATABASE() AND table_name = 'invoices'`
+    );
+    const existingCols = new Set(colsRows.map(r => r.COLUMN_NAME));
+    for (const [col, definition] of Object.entries(expectedInvoiceCols)) {
+      if (!existingCols.has(col)) {
+        await conn.query(`ALTER TABLE invoices ADD COLUMN ${col} ${definition}`);
+      }
+    }
+
+    // suppliers table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS suppliers (
         id VARCHAR(50) PRIMARY KEY,
@@ -66,7 +94,7 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
-    // purchase_orders
+    // purchase_orders table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id VARCHAR(50) PRIMARY KEY,
@@ -77,7 +105,7 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
-    // payments (depends on invoices existing)
+    // payments table
     await conn.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id VARCHAR(50) PRIMARY KEY,
@@ -88,7 +116,8 @@ async function initDb() {
         CONSTRAINT fk_payment_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
       ) ENGINE=INNODB;
     `);
-    // view supplier_stats
+
+    // create or replace view supplier_stats
     try {
       await conn.query(`
         CREATE OR REPLACE VIEW supplier_stats AS
@@ -106,6 +135,7 @@ async function initDb() {
     conn.release();
   }
 }
+
 
 initDb().catch(err => {
   console.error('Failed initializing database:', err);
