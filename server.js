@@ -57,22 +57,7 @@ async function initDb() {
       ) ENGINE=INNODB;
     `);
     // ensure any missing columns (in case table pre-existed with different schema)
-    await conn.query(`
-      ALTER TABLE invoices
-        ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100),
-        ADD COLUMN IF NOT EXISTS supplier_name VARCHAR(255),
-        ADD COLUMN IF NOT EXISTS type VARCHAR(100),
-        ADD COLUMN IF NOT EXISTS category VARCHAR(100),
-        ADD COLUMN IF NOT EXISTS date DATE,
-        ADD COLUMN IF NOT EXISTS amount_before_tax DECIMAL(15,2),
-        ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(15,2),
-        ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2),
-        ADD COLUMN IF NOT EXISTS notes TEXT,
-        ADD COLUMN IF NOT EXISTS file_data LONGTEXT,
-        ADD COLUMN IF NOT EXISTS file_type VARCHAR(100),
-        ADD COLUMN IF NOT EXISTS file_name VARCHAR(255),
-        ADD COLUMN IF NOT EXISTS file_size BIGINT;
-    `);
+    
     // suppliers
     await conn.query(`
       CREATE TABLE IF NOT EXISTS suppliers (
