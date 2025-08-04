@@ -10,39 +10,33 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static frontend files
+// Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
-// Database pool
+// Setup DB pool, prefer full URL if provided
 let pool;
 if (process.env.MYSQL_URL) {
   pool = mysql.createPool(process.env.MYSQL_URL);
 } else {
   pool = mysql.createPool({
     host: process.env.MYSQLHOST || 'localhost',
-    user: process.env.MYSQLUSER || process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || '',
-    database: process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || 'erp_system',
+    user: process.env.MYSQLUSER || 'root',
+    password: process.env.MYSQLPASSWORD || '',
+    database: process.env.MYSQLDATABASE || 'erp_system',
     port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT) : 3306,
     waitForConnections: true,
     connectionLimit: 10
   });
 }
 
-// Initialize required tables and view
+// Initialize DB schema (migration)
 async function initDb() {
   const conn = await pool.getConnection();
   try {
-    await conn.query(`
-      CREATE TABLE IF NOT EXISTS suppliers (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=INNODB;
-    `);
+    // invoices table (base definition)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS invoices (
         id VARCHAR(50) PRIMARY KEY,
@@ -62,6 +56,32 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
+    // ensure any missing columns (in case table pre-existed with different schema)
+    await conn.query(`
+      ALTER TABLE invoices
+        ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS supplier_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS type VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS date DATE,
+        ADD COLUMN IF NOT EXISTS amount_before_tax DECIMAL(15,2),
+        ADD COLUMN IF NOT EXISTS tax_amount DECIMAL(15,2),
+        ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2),
+        ADD COLUMN IF NOT EXISTS notes TEXT,
+        ADD COLUMN IF NOT EXISTS file_data LONGTEXT,
+        ADD COLUMN IF NOT EXISTS file_type VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS file_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS file_size BIGINT;
+    `);
+    // suppliers
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=INNODB;
+    `);
+    // purchase_orders
     await conn.query(`
       CREATE TABLE IF NOT EXISTS purchase_orders (
         id VARCHAR(50) PRIMARY KEY,
@@ -72,6 +92,7 @@ async function initDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=INNODB;
     `);
+    // payments (depends on invoices existing)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id VARCHAR(50) PRIMARY KEY,
@@ -79,18 +100,23 @@ async function initDb() {
         amount DECIMAL(15,2),
         method VARCHAR(100),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
+        CONSTRAINT fk_payment_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
       ) ENGINE=INNODB;
     `);
-    await conn.query(`
-      CREATE OR REPLACE VIEW supplier_stats AS
-      SELECT 
-        supplier_name,
-        COUNT(*) AS invoices_count,
-        SUM(total_amount) AS total_spent
-      FROM invoices
-      GROUP BY supplier_name;
-    `);
+    // view supplier_stats
+    try {
+      await conn.query(`
+        CREATE OR REPLACE VIEW supplier_stats AS
+        SELECT 
+          supplier_name,
+          COUNT(*) AS invoices_count,
+          SUM(total_amount) AS total_spent
+        FROM invoices
+        GROUP BY supplier_name;
+      `);
+    } catch (err) {
+      console.warn('Warning: could not create view supplier_stats:', err.message);
+    }
   } finally {
     conn.release();
   }
@@ -105,19 +131,19 @@ function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-// Statistics endpoint
+// Stats
 app.get('/api/statistics', async (req, res) => {
   try {
-    const [[{ suppliers_count }]] = await pool.query('SELECT COUNT(DISTINCT supplier_name) AS suppliers_count FROM invoices');
-    const [[{ invoices_count }]] = await pool.query('SELECT COUNT(*) AS invoices_count FROM invoices');
-    const [[{ orders_count }]] = await pool.query('SELECT COUNT(*) AS orders_count FROM purchase_orders');
-    const [[{ payments_count }]] = await pool.query('SELECT COUNT(*) AS payments_count FROM payments');
+    const [[suppliersCount]] = await pool.query('SELECT COUNT(DISTINCT supplier_name) AS suppliers_count FROM invoices');
+    const [[invoicesCount]] = await pool.query('SELECT COUNT(*) AS invoices_count FROM invoices');
+    const [[ordersCount]] = await pool.query('SELECT COUNT(*) AS orders_count FROM purchase_orders');
+    const [[paymentsCount]] = await pool.query('SELECT COUNT(*) AS payments_count FROM payments');
 
     res.json({
-      suppliers_count: suppliers_count || 0,
-      invoices_count: invoices_count || 0,
-      orders_count: orders_count || 0,
-      payments_count: payments_count || 0
+      suppliers_count: suppliersCount.suppliers_count || 0,
+      invoices_count: invoicesCount.invoices_count || 0,
+      orders_count: ordersCount.orders_count || 0,
+      payments_count: paymentsCount.payments_count || 0
     });
   } catch (err) {
     console.error('Statistics error:', err);
@@ -125,7 +151,7 @@ app.get('/api/statistics', async (req, res) => {
   }
 });
 
-// Suppliers
+// Suppliers endpoints
 app.get('/api/suppliers', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM suppliers ORDER BY created_at DESC');
@@ -151,7 +177,7 @@ app.post('/api/suppliers', async (req, res) => {
   }
 });
 
-// Invoices
+// Invoices endpoints
 app.get('/api/invoices', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM invoices ORDER BY created_at DESC');
@@ -211,7 +237,7 @@ app.post('/api/invoices', async (req, res) => {
   }
 });
 
-// Purchase Orders
+// Purchase orders
 app.get('/api/purchase-orders', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM purchase_orders ORDER BY created_at DESC');
@@ -279,5 +305,5 @@ app.post('/api/payments', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(\`Server running on port \${PORT}\`);
 });
