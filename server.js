@@ -1,558 +1,555 @@
-const express = require('express');
-const mysql = require('mysql2');
-const cors = require('cors');
-const path = require('path');
-const bodyParser = require('body-parser');
+// server.js
 require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const mysql = require('mysql2/promise');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Parse JSON bodies
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(express.static('public'));
+app.use(express.json({ limit: '10mb' }));
 
-// طباعة إعدادات قاعدة البيانات للتأكد
-console.log('Database Configuration:', {
-  host: process.env.MYSQLHOST || 'localhost',
-  user: process.env.MYSQLUSER || 'root',
-  database: process.env.MYSQLDATABASE || 'railway',
-  port: process.env.MYSQLPORT || 3306,
-  hasPassword: !!process.env.MYSQLPASSWORD
-});
-
-// إعداد اتصال قاعدة البيانات - محدث للعمل مع Railway
-const db = mysql.createConnection({
+// Database pool
+const pool = mysql.createPool({
   host: process.env.MYSQLHOST || 'localhost',
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || '',
-  database: process.env.MYSQLDATABASE || 'railway', // تغيير من erp_system إلى railway
-  port: process.env.MYSQLPORT || 3306,
-  connectTimeout: 60000, // إضافة timeout أطول
+  database: process.env.MYSQLDATABASE || 'erp_system',
+  port: process.env.MYSQLPORT ? parseInt(process.env.MYSQLPORT) : 3306,
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  connectionLimit: 10
 });
 
-// الاتصال بقاعدة البيانات مع معالجة أفضل للأخطاء
-db.connect((err) => {
-  if (err) {
-    console.error('خطأ في الاتصال بقاعدة البيانات:', err);
-    console.error('Error Code:', err.code);
-    console.error('Error Number:', err.errno);
-    console.error('SQL Message:', err.sqlMessage);
-    console.error('SQL State:', err.sqlState);
-    
-    // محاولة إعادة الاتصال بعد 5 ثواني
-    setTimeout(() => {
-      console.log('محاولة إعادة الاتصال بقاعدة البيانات...');
-      db.connect((retryErr) => {
-        if (retryErr) {
-          console.error('فشلت محاولة إعادة الاتصال:', retryErr);
-        } else {
-          console.log('تم إعادة الاتصال بقاعدة البيانات بنجاح');
-          initializeDatabase();
-        }
-      });
-    }, 5000);
-    return;
-  }
-  console.log('تم الاتصال بقاعدة البيانات بنجاح');
-  initializeDatabase();
-});
-
-// دالة لإنشاء الجداول إذا لم تكن موجودة
-async function initializeDatabase() {
-  try {
-    // إنشاء الجداول إذا لم تكن موجودة
-    const tables = [
-      // جدول الموردين
-      `CREATE TABLE IF NOT EXISTS suppliers (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL UNIQUE,
-        is_pinned BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )`,
-      
-      // جدول الفواتير
-      `CREATE TABLE IF NOT EXISTS invoices (
-        id VARCHAR(50) PRIMARY KEY,
-        invoice_number VARCHAR(100) NOT NULL UNIQUE,
-        supplier_id INT NOT NULL,
-        type VARCHAR(100),
-        category VARCHAR(100),
-        date DATE NOT NULL,
-        amount_before_tax DECIMAL(10, 2) DEFAULT 0,
-        tax_amount DECIMAL(10, 2) DEFAULT 0,
-        total_amount DECIMAL(10, 2) DEFAULT 0,
-        notes TEXT,
-        file_data LONGTEXT,
-        file_type VARCHAR(50),
-        file_name VARCHAR(255),
-        file_size INT,
-        purchase_order_id VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
-        INDEX idx_supplier (supplier_id),
-        INDEX idx_date (date),
-        INDEX idx_po (purchase_order_id)
-      )`,
-      
-      // جدول المدفوعات
-      `CREATE TABLE IF NOT EXISTS payments (
-        id VARCHAR(50) PRIMARY KEY,
-        supplier_id INT NOT NULL,
-        amount DECIMAL(10, 2) NOT NULL,
-        date DATE NOT NULL,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
-        INDEX idx_supplier (supplier_id),
-        INDEX idx_date (date)
-      )`,
-      
-      // جدول أوامر الشراء
-      `CREATE TABLE IF NOT EXISTS purchase_orders (
-        id VARCHAR(50) PRIMARY KEY,
-        supplier_id INT NOT NULL,
-        description TEXT NOT NULL,
-        price DECIMAL(10, 2) NOT NULL,
-        status VARCHAR(50) DEFAULT 'active',
-        pdf_file_data LONGTEXT,
-        pdf_file_name VARCHAR(255),
-        pdf_file_size INT,
-        created_date DATE NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
-        INDEX idx_supplier (supplier_id),
-        INDEX idx_date (created_date)
-      )`
-    ];
-    
-    // إنشاء الجداول
-    for (const tableSQL of tables) {
-      await dbQuery(tableSQL);
-    }
-    
-    console.log('تم التحقق من الجداول بنجاح');
-    
-    // إنشاء view للإحصائيات
-    await dbQuery(`
-      CREATE OR REPLACE VIEW supplier_stats AS
-      SELECT 
-        s.id,
-        s.name,
-        s.is_pinned,
-        COUNT(DISTINCT i.id) as invoice_count,
-        COALESCE(SUM(i.total_amount), 0) as total_invoices,
-        COALESCE((SELECT SUM(amount) FROM payments WHERE supplier_id = s.id), 0) as total_payments,
-        COALESCE(SUM(i.total_amount), 0) - COALESCE((SELECT SUM(amount) FROM payments WHERE supplier_id = s.id), 0) as outstanding_amount,
-        MAX(i.date) as latest_invoice_date
-      FROM suppliers s
-      LEFT JOIN invoices i ON s.id = i.supplier_id
-      GROUP BY s.id, s.name, s.is_pinned
-    `);
-    
-    console.log('تم إنشاء العروض (Views) بنجاح');
-    
-  } catch (err) {
-    console.error('خطأ في تهيئة قاعدة البيانات:', err);
-  }
+async function initialize() {
+  // Create tables if they don't exist
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      is_pinned BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id VARCHAR(50) PRIMARY KEY,
+      invoice_number VARCHAR(255),
+      supplier_id INT,
+      type VARCHAR(100),
+      category VARCHAR(100),
+      date DATE,
+      amount_before_tax DECIMAL(12,2),
+      tax_amount DECIMAL(12,2),
+      total_amount DECIMAL(12,2),
+      notes TEXT,
+      file_data LONGTEXT,
+      file_type VARCHAR(100),
+      file_name VARCHAR(255),
+      file_size BIGINT,
+      purchase_order_id VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id VARCHAR(50) PRIMARY KEY,
+      supplier_id INT NOT NULL,
+      description TEXT NOT NULL,
+      price DECIMAL(12,2) NOT NULL,
+      status VARCHAR(50) DEFAULT 'active',
+      pdf_file_data LONGTEXT,
+      pdf_file_name VARCHAR(255),
+      pdf_file_size BIGINT,
+      created_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id VARCHAR(50) PRIMARY KEY,
+      supplier_id INT NOT NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      date DATE NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+    )
+  `);
+  // Create or replace view
+  await pool.query(`
+    CREATE OR REPLACE VIEW supplier_stats AS
+    SELECT 
+      s.id,
+      s.name,
+      s.is_pinned,
+      COUNT(DISTINCT i.id) as invoice_count,
+      COALESCE(SUM(i.total_amount), 0) as total_invoices,
+      COALESCE((SELECT SUM(amount) FROM payments p WHERE p.supplier_id = s.id), 0) as total_payments,
+      COALESCE(SUM(i.total_amount), 0) - COALESCE((SELECT SUM(amount) FROM payments p WHERE p.supplier_id = s.id), 0) as outstanding_amount,
+      MAX(i.date) as latest_invoice_date
+    FROM suppliers s
+    LEFT JOIN invoices i ON s.id = i.supplier_id
+    GROUP BY s.id, s.name, s.is_pinned
+  `);
 }
 
-// Convert callbacks to promises
-const dbQuery = (sql, params) => {
-  return new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) reject(err);
-      else resolve(results);
+// Helper to send error
+function handleError(res, err) {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+}
+
+// ===== Suppliers =====
+app.get('/api/suppliers', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM suppliers ORDER BY is_pinned DESC, name ASC');
+    res.json(rows);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post('/api/suppliers', async (req, res) => {
+  try {
+    const { name, is_pinned = false } = req.body;
+    if (!name) return res.status(400).json({ error: 'اسم المورد مطلوب' });
+    const [result] = await pool.query(
+      'INSERT INTO suppliers (name, is_pinned) VALUES (?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name), is_pinned=VALUES(is_pinned)',
+      [name.trim(), is_pinned]
+    );
+    const [rows] = await pool.query('SELECT * FROM suppliers WHERE name = ?', [name.trim()]);
+    res.json(rows[0]);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.put('/api/suppliers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, is_pinned } = req.body;
+    const updates = [];
+    const params = [];
+    if (name !== undefined) {
+      updates.push('name = ?');
+      params.push(name.trim());
+    }
+    if (is_pinned !== undefined) {
+      updates.push('is_pinned = ?');
+      params.push(is_pinned);
+    }
+    if (!updates.length) {
+      return res.status(400).json({ error: 'لا يوجد بيانات للتحديث' });
+    }
+    params.push(id);
+    await pool.query(`UPDATE suppliers SET ${updates.join(', ')} WHERE id = ?`, params);
+    const [rows] = await pool.query('SELECT * FROM suppliers WHERE id = ?', [id]);
+    res.json(rows[0]);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.patch('/api/suppliers/:id/pin', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_pinned } = req.body;
+    await pool.query('UPDATE suppliers SET is_pinned = ? WHERE id = ?', [is_pinned ? 1 : 0, id]);
+    const [rows] = await pool.query('SELECT * FROM suppliers WHERE id = ?', [id]);
+    res.json(rows[0]);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// ===== Invoices =====
+app.get('/api/invoices', async (req, res) => {
+  try {
+    const supplierId = req.query.supplier_id;
+    let sql = `
+      SELECT i.*, s.name AS supplier_name
+      FROM invoices i
+      LEFT JOIN suppliers s ON s.id = i.supplier_id
+    `;
+    const params = [];
+    if (supplierId) {
+      sql += ' WHERE i.supplier_id = ?';
+      params.push(supplierId);
+    }
+    sql += ' ORDER BY i.created_at DESC';
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post('/api/invoices', async (req, res) => {
+  try {
+    const {
+      id,
+      invoice_number,
+      supplier_name,
+      type,
+      category,
+      date,
+      amount_before_tax,
+      tax_amount,
+      total_amount,
+      notes,
+      file_data,
+      file_type,
+      file_name,
+      file_size,
+      purchase_order_id
+    } = req.body;
+
+    if (!supplier_name) return res.status(400).json({ error: 'اسم المورد مطلوب' });
+    // ensure supplier exists
+    const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [supplier_name.trim()]);
+    let supplier_id;
+    if (supRows.length) {
+      supplier_id = supRows[0].id;
+    } else {
+      const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [supplier_name.trim()]);
+      supplier_id = ins.insertId;
+    }
+
+    await pool.query(
+      `INSERT INTO invoices 
+        (id, invoice_number, supplier_id, type, category, date, amount_before_tax, tax_amount, total_amount, notes, file_data, file_type, file_name, file_size, purchase_order_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE
+         invoice_number=VALUES(invoice_number),
+         type=VALUES(type),
+         category=VALUES(category),
+         date=VALUES(date),
+         amount_before_tax=VALUES(amount_before_tax),
+         tax_amount=VALUES(tax_amount),
+         total_amount=VALUES(total_amount),
+         notes=VALUES(notes),
+         file_data=VALUES(file_data),
+         file_type=VALUES(file_type),
+         file_name=VALUES(file_name),
+         file_size=VALUES(file_size),
+         purchase_order_id=VALUES(purchase_order_id)
+      `,
+      [
+        id,
+        invoice_number,
+        supplier_id,
+        type,
+        category,
+        date,
+        amount_before_tax || 0,
+        tax_amount || 0,
+        total_amount || 0,
+        notes,
+        file_data,
+        file_type,
+        file_name,
+        file_size,
+        purchase_order_id || null
+      ]
+    );
+
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.put('/api/invoices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = ['invoice_number', 'type', 'category', 'date', 'amount_before_tax', 'tax_amount', 'total_amount', 'notes', 'file_data', 'file_type', 'file_name', 'file_size', 'purchase_order_id', 'supplier_name'];
+    const updates = [];
+    const params = [];
+    const body = req.body;
+    let supplier_id = null;
+    if (body.supplier_name) {
+      const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [body.supplier_name.trim()]);
+      if (supRows.length) {
+        supplier_id = supRows[0].id;
+      } else {
+        const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [body.supplier_name.trim()]);
+        supplier_id = ins.insertId;
+      }
+      updates.push('supplier_id = ?');
+      params.push(supplier_id);
+    }
+    fields.forEach(field => {
+      if (body[field] !== undefined && field !== 'supplier_name') {
+        updates.push(`${field} = ?`);
+        params.push(body[field]);
+      }
     });
-  });
-};
-
-// معالج أخطاء عام
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
-
-// ===== SUPPLIERS ENDPOINTS =====
-
-// الحصول على جميع الموردين
-app.get('/api/suppliers', asyncHandler(async (req, res) => {
-  const suppliers = await dbQuery('SELECT * FROM suppliers ORDER BY is_pinned DESC, name ASC');
-  res.json(suppliers);
-}));
-
-// إضافة مورد جديد
-app.post('/api/suppliers', asyncHandler(async (req, res) => {
-  const { name, is_pinned = false } = req.body;
-  const result = await dbQuery('INSERT INTO suppliers (name, is_pinned) VALUES (?, ?)', [name, is_pinned]);
-  res.json({ id: result.insertId, name, is_pinned });
-}));
-
-// تحديث مورد
-app.put('/api/suppliers/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { name, is_pinned } = req.body;
-  await dbQuery('UPDATE suppliers SET name = ?, is_pinned = ? WHERE id = ?', [name, is_pinned, id]);
-  res.json({ success: true });
-}));
-
-// تثبيت/إلغاء تثبيت مورد
-app.patch('/api/suppliers/:id/pin', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { is_pinned } = req.body;
-  await dbQuery('UPDATE suppliers SET is_pinned = ? WHERE id = ?', [is_pinned, id]);
-  res.json({ success: true });
-}));
-
-// ===== INVOICES ENDPOINTS =====
-
-// الحصول على جميع الفواتير
-app.get('/api/invoices', asyncHandler(async (req, res) => {
-  const { supplier_id } = req.query;
-  let sql = `
-    SELECT i.*, s.name as supplier_name 
-    FROM invoices i 
-    JOIN suppliers s ON i.supplier_id = s.id
-  `;
-  const params = [];
-  
-  if (supplier_id) {
-    sql += ' WHERE i.supplier_id = ?';
-    params.push(supplier_id);
+    if (!updates.length) return res.status(400).json({ error: 'لا يوجد بيانات لتحديثها' });
+    params.push(id);
+    await pool.query(`UPDATE invoices SET ${updates.join(', ')} WHERE id = ?`, params);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
   }
-  
-  sql += ' ORDER BY i.date DESC';
-  
-  const invoices = await dbQuery(sql, params);
-  res.json(invoices);
-}));
-
-// إضافة فاتورة جديدة
-app.post('/api/invoices', asyncHandler(async (req, res) => {
-  const {
-    id,
-    invoice_number,
-    supplier_name,
-    type,
-    category,
-    date,
-    amount_before_tax,
-    tax_amount,
-    total_amount,
-    notes,
-    file_data,
-    file_type,
-    file_name,
-    file_size,
-    purchase_order_id
-  } = req.body;
-
-  // البحث عن المورد أو إنشاؤه
-  let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
-  if (!supplier) {
-    const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
-    supplier = { id: result.insertId };
-  }
-
-  // إدراج الفاتورة
-  await dbQuery(
-    `INSERT INTO invoices (
-      id, invoice_number, supplier_id, type, category, date,
-      amount_before_tax, tax_amount, total_amount, notes,
-      file_data, file_type, file_name, file_size, purchase_order_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id, invoice_number, supplier.id, type, category, date,
-      amount_before_tax, tax_amount, total_amount, notes,
-      file_data, file_type, file_name, file_size, purchase_order_id
-    ]
-  );
-
-  res.json({ success: true, id });
-}));
-
-// تحديث فاتورة
-app.put('/api/invoices/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const {
-    invoice_number,
-    supplier_name,
-    type,
-    category,
-    date,
-    amount_before_tax,
-    tax_amount,
-    total_amount,
-    notes
-  } = req.body;
-
-  // البحث عن المورد أو إنشاؤه
-  let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
-  if (!supplier) {
-    const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
-    supplier = { id: result.insertId };
-  }
-
-  await dbQuery(
-    `UPDATE invoices SET 
-      invoice_number = ?, supplier_id = ?, type = ?, category = ?,
-      date = ?, amount_before_tax = ?, tax_amount = ?, total_amount = ?, notes = ?
-    WHERE id = ?`,
-    [
-      invoice_number, supplier.id, type, category,
-      date, amount_before_tax, tax_amount, total_amount, notes, id
-    ]
-  );
-
-  res.json({ success: true });
-}));
-
-// حذف فاتورة
-app.delete('/api/invoices/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  await dbQuery('DELETE FROM invoices WHERE id = ?', [id]);
-  res.json({ success: true });
-}));
-
-// ===== PAYMENTS ENDPOINTS =====
-
-// الحصول على مدفوعات مورد
-app.get('/api/payments', asyncHandler(async (req, res) => {
-  const { supplier_id } = req.query;
-  let sql = 'SELECT * FROM payments';
-  const params = [];
-  
-  if (supplier_id) {
-    sql += ' WHERE supplier_id = ?';
-    params.push(supplier_id);
-  }
-  
-  sql += ' ORDER BY date DESC';
-  
-  const payments = await dbQuery(sql, params);
-  res.json(payments);
-}));
-
-// إضافة دفعة جديدة
-app.post('/api/payments', asyncHandler(async (req, res) => {
-  const { id, supplier_id, amount, date, notes } = req.body;
-  await dbQuery(
-    'INSERT INTO payments (id, supplier_id, amount, date, notes) VALUES (?, ?, ?, ?, ?)',
-    [id, supplier_id, amount, date, notes]
-  );
-  res.json({ success: true, id });
-}));
-
-// تحديث دفعة
-app.put('/api/payments/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { amount, date, notes } = req.body;
-  await dbQuery(
-    'UPDATE payments SET amount = ?, date = ?, notes = ? WHERE id = ?',
-    [amount, date, notes, id]
-  );
-  res.json({ success: true });
-}));
-
-// حذف دفعة
-app.delete('/api/payments/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  await dbQuery('DELETE FROM payments WHERE id = ?', [id]);
-  res.json({ success: true });
-}));
-
-// ===== PURCHASE ORDERS ENDPOINTS =====
-
-// الحصول على أوامر الشراء
-app.get('/api/purchase-orders', asyncHandler(async (req, res) => {
-  const orders = await dbQuery(`
-    SELECT po.*, s.name as supplier_name 
-    FROM purchase_orders po 
-    JOIN suppliers s ON po.supplier_id = s.id 
-    ORDER BY po.id DESC
-  `);
-  res.json(orders);
-}));
-
-// إضافة أمر شراء جديد
-app.post('/api/purchase-orders', asyncHandler(async (req, res) => {
-  const {
-    id,
-    supplier_name,
-    description,
-    price,
-    pdf_file_data,
-    pdf_file_name,
-    pdf_file_size,
-    created_date
-  } = req.body;
-
-  // البحث عن المورد أو إنشاؤه
-  let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
-  if (!supplier) {
-    const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
-    supplier = { id: result.insertId };
-  }
-
-  await dbQuery(
-    `INSERT INTO purchase_orders (
-      id, supplier_id, description, price, pdf_file_data, 
-      pdf_file_name, pdf_file_size, created_date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id, supplier.id, description, price, pdf_file_data,
-      pdf_file_name, pdf_file_size, created_date
-    ]
-  );
-
-  res.json({ success: true, id });
-}));
-
-// تحديث أمر شراء
-app.put('/api/purchase-orders/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { supplier_name, description, price, pdf_file_data, pdf_file_name, pdf_file_size } = req.body;
-
-  // البحث عن المورد أو إنشاؤه
-  let [supplier] = await dbQuery('SELECT id FROM suppliers WHERE name = ?', [supplier_name]);
-  if (!supplier) {
-    const result = await dbQuery('INSERT INTO suppliers (name) VALUES (?)', [supplier_name]);
-    supplier = { id: result.insertId };
-  }
-
-  const updateFields = ['supplier_id = ?', 'description = ?', 'price = ?'];
-  const updateValues = [supplier.id, description, price];
-
-  if (pdf_file_data) {
-    updateFields.push('pdf_file_data = ?', 'pdf_file_name = ?', 'pdf_file_size = ?');
-    updateValues.push(pdf_file_data, pdf_file_name, pdf_file_size);
-  }
-
-  updateValues.push(id);
-
-  await dbQuery(
-    `UPDATE purchase_orders SET ${updateFields.join(', ')} WHERE id = ?`,
-    updateValues
-  );
-
-  res.json({ success: true });
-}));
-
-// حذف أمر شراء
-app.delete('/api/purchase-orders/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  // إلغاء ربط الفواتير أولاً
-  await dbQuery('UPDATE invoices SET purchase_order_id = NULL WHERE purchase_order_id = ?', [id]);
-  // حذف أمر الشراء
-  await dbQuery('DELETE FROM purchase_orders WHERE id = ?', [id]);
-  res.json({ success: true });
-}));
-
-// ===== STATISTICS ENDPOINTS =====
-
-// إحصائيات عامة
-app.get('/api/statistics', asyncHandler(async (req, res) => {
-  const [suppliers] = await dbQuery('SELECT COUNT(*) as count FROM suppliers');
-  const [invoices] = await dbQuery('SELECT COUNT(*) as count FROM invoices');
-  const [orders] = await dbQuery('SELECT COUNT(*) as count FROM purchase_orders');
-  
-  const invoiceTotals = await dbQuery(`
-    SELECT 
-      supplier_id,
-      SUM(total_amount) as total_invoices
-    FROM invoices
-    GROUP BY supplier_id
-  `);
-  
-  const paymentTotals = await dbQuery(`
-    SELECT 
-      supplier_id,
-      SUM(amount) as total_payments
-    FROM payments
-    GROUP BY supplier_id
-  `);
-
-  res.json({
-    suppliers_count: suppliers.count,
-    invoices_count: invoices.count,
-    orders_count: orders.count,
-    invoice_totals: invoiceTotals || [],
-    payment_totals: paymentTotals || []
-  });
-}));
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    database: db.state === 'authenticated' ? 'connected' : 'disconnected',
-    uptime: process.uptime()
-  });
 });
 
-// خدمة الملفات الثابتة
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+app.delete('/api/invoices/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM invoices WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
 });
 
-// معالج الأخطاء العام
-app.use((err, req, res, next) => {
-  console.error('خطأ في التطبيق:', err);
-  res.status(500).json({
-    error: err.message || 'حدث خطأ في الخادم',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
+// ===== Purchase Orders =====
+app.get('/api/purchase-orders', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT po.*, s.name AS supplier_name
+      FROM purchase_orders po
+      LEFT JOIN suppliers s ON s.id = po.supplier_id
+      ORDER BY po.created_at DESC
+    `);
+    res.json(rows);
+  } catch (e) {
+    handleError(res, e);
+  }
 });
 
-// معالج للطرق غير الموجودة
-app.use((req, res) => {
-  res.status(404).json({ error: 'الصفحة المطلوبة غير موجودة' });
+app.post('/api/purchase-orders', async (req, res) => {
+  try {
+    const {
+      id,
+      supplier_name,
+      description,
+      price,
+      pdf_file_data,
+      pdf_file_name,
+      pdf_file_size,
+      created_date
+    } = req.body;
+
+    if (!supplier_name) return res.status(400).json({ error: 'اسم المورد مطلوب' });
+    // ensure supplier exists
+    const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [supplier_name.trim()]);
+    let supplier_id;
+    if (supRows.length) {
+      supplier_id = supRows[0].id;
+    } else {
+      const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [supplier_name.trim()]);
+      supplier_id = ins.insertId;
+    }
+
+    await pool.query(
+      `INSERT INTO purchase_orders 
+        (id, supplier_id, description, price, pdf_file_data, pdf_file_name, pdf_file_size, created_date)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE
+         description=VALUES(description),
+         price=VALUES(price),
+         pdf_file_data=VALUES(pdf_file_data),
+         pdf_file_name=VALUES(pdf_file_name),
+         pdf_file_size=VALUES(pdf_file_size),
+         created_date=VALUES(created_date)
+      `,
+      [id, supplier_id, description, price || 0, pdf_file_data, pdf_file_name, pdf_file_size, created_date]
+    );
+
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
 });
 
-// بدء الخادم
-const server = app.listen(PORT, () => {
-  console.log(`الخادم يعمل على المنفذ ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
-
-// معالجة إيقاف الخادم بشكل نظيف
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    db.end(() => {
-      console.log('Database connection closed');
-      process.exit(0);
+app.put('/api/purchase-orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = ['description', 'price', 'status', 'pdf_file_data', 'pdf_file_name', 'pdf_file_size', 'created_date', 'supplier_name'];
+    const updates = [];
+    const params = [];
+    const body = req.body;
+    let supplier_id = null;
+    if (body.supplier_name) {
+      const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [body.supplier_name.trim()]);
+      if (supRows.length) {
+        supplier_id = supRows[0].id;
+      } else {
+        const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [body.supplier_name.trim()]);
+        supplier_id = ins.insertId;
+      }
+      updates.push('supplier_id = ?');
+      params.push(supplier_id);
+    }
+    fields.forEach(field => {
+      if (body[field] !== undefined && field !== 'supplier_name') {
+        updates.push(`${field} = ?`);
+        params.push(body[field]);
+      }
     });
-  });
+    if (!updates.length) return res.status(400).json({ error: 'لا يوجد بيانات للتحديثها' });
+    params.push(id);
+    await pool.query(`UPDATE purchase_orders SET ${updates.join(', ')} WHERE id = ?`, params);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    db.end(() => {
-      console.log('Database connection closed');
-      process.exit(0);
+app.delete('/api/purchase-orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // unlink invoices
+    await pool.query('UPDATE invoices SET purchase_order_id = NULL WHERE purchase_order_id = ?', [id]);
+    await pool.query('DELETE FROM purchase_orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// ===== Payments =====
+app.get('/api/payments', async (req, res) => {
+  try {
+    const supplierId = req.query.supplier_id;
+    let sql = `SELECT p.*, s.name AS supplier_name FROM payments p LEFT JOIN suppliers s ON s.id = p.supplier_id`;
+    const params = [];
+    if (supplierId) {
+      sql += ' WHERE p.supplier_id = ?';
+      params.push(supplierId);
+    }
+    sql += ' ORDER BY p.created_at DESC';
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.post('/api/payments', async (req, res) => {
+  try {
+    const { id, supplier_name, amount, date, notes } = req.body;
+    if (!supplier_name) return res.status(400).json({ error: 'اسم المورد مطلوب' });
+    // ensure supplier
+    const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [supplier_name.trim()]);
+    let supplier_id;
+    if (supRows.length) {
+      supplier_id = supRows[0].id;
+    } else {
+      const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [supplier_name.trim()]);
+      supplier_id = ins.insertId;
+    }
+    await pool.query(
+      `INSERT INTO payments (id, supplier_id, amount, date, notes)
+       VALUES (?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE amount=VALUES(amount), date=VALUES(date), notes=VALUES(notes)
+      `,
+      [id, supplier_id, amount || 0, date, notes]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+app.put('/api/payments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = ['amount', 'date', 'notes', 'supplier_name'];
+    const updates = [];
+    const params = [];
+    const body = req.body;
+    let supplier_id = null;
+    if (body.supplier_name) {
+      const [supRows] = await pool.query('SELECT id FROM suppliers WHERE name = ?', [body.supplier_name.trim()]);
+      if (supRows.length) {
+        supplier_id = supRows[0].id;
+      } else {
+        const [ins] = await pool.query('INSERT INTO suppliers (name) VALUES (?)', [body.supplier_name.trim()]);
+        supplier_id = ins.insertId;
+      }
+      updates.push('supplier_id = ?');
+      params.push(supplier_id);
+    }
+    fields.forEach(field => {
+      if (body[field] !== undefined && field !== 'supplier_name') {
+        updates.push(`${field} = ?`);
+        params.push(body[field]);
+      }
     });
-  });
+    if (!updates.length) return res.status(400).json({ error: 'لا يوجد بيانات لتحديثها' });
+    params.push(id);
+    await pool.query(`UPDATE payments SET ${updates.join(', ')} WHERE id = ?`, params);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
 });
 
-// معالجة الأخطاء غير المتوقعة
+app.delete('/api/payments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM payments WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// ===== Statistics =====
+app.get('/api/statistics', async (req, res) => {
+  try {
+    const [[suppliersCount]] = await pool.query('SELECT COUNT(*) as count FROM suppliers');
+    const [[invoicesCount]] = await pool.query('SELECT COUNT(*) as count FROM invoices');
+    const [[ordersCount]] = await pool.query('SELECT COUNT(*) as count FROM purchase_orders');
+
+    const [invoiceTotals] = await pool.query(`
+      SELECT supplier_id, SUM(total_amount) as total_invoices
+      FROM invoices
+      GROUP BY supplier_id
+    `);
+    const [paymentTotals] = await pool.query(`
+      SELECT supplier_id, SUM(amount) as total_payments
+      FROM payments
+      GROUP BY supplier_id
+    `);
+
+    res.json({
+      suppliers_count: suppliersCount.count,
+      invoices_count: invoicesCount.count,
+      orders_count: ordersCount.count,
+      invoice_totals: invoiceTotals,
+      payment_totals: paymentTotals
+    });
+  } catch (e) {
+    handleError(res, e);
+  }
+});
+
+// Start
+initialize().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
+
+// Handle unexpected
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
 });
-
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
