@@ -50,7 +50,7 @@ const invoicesAPI = {
 // Payments API
 const paymentsAPI = {
   getAll: (supplierId = null) => {
-    const endpoint = supplierId ? `/api/payments?supplier_id=${supplierId}` : '/api/payments';
+    const endpoint = supplierId ? `/payments?supplier_id=${supplierId}` : '/payments';
     return apiRequest(endpoint);
   },
   create: (data) => apiRequest('/api/payments', 'POST', data),
@@ -68,7 +68,7 @@ const purchaseOrdersAPI = {
 
 // Statistics API
 const statisticsAPI = {
-  getAll: () => apiRequest('/api/statistics')
+  getAll: () => apiRequest('/statistics')
 };
 
 // Storage Migration Functions
