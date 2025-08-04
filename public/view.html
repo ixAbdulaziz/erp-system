@@ -1945,7 +1945,7 @@ loadData();
         let filteredSuppliers = {};
         let filteredInvoices = [];
         let currentSort = { column: null, direction: 'asc' };
-        let pinnedSuppliers = JSON.parse(localStorage.getItem('pinnedSuppliers') || '[]');
+        let pinnedSuppliers = JSON.parse( || '[]');
         
         // Store for file data - keeps file data in memory to avoid long HTML attributes
         let fileDataStore = {};
@@ -2997,7 +2997,7 @@ loadData();
           pinnedSuppliers.push(supplierName);
         }
         
-        localStorage.setItem('pinnedSuppliers', JSON.stringify(pinnedSuppliers));
+        );
         
         // Re-render suppliers with current search
         const searchTerm = elements.supplierSearch.value;
@@ -3214,7 +3214,7 @@ async function updateInvoice() {  // إضافة async
           (currentDeletingInvoice.id || `${currentDeletingInvoice.invoiceNumber}-${currentDeletingInvoice.date}-${currentDeletingInvoice.supplier}`)
         );
         
-        localStorage.setItem('invoices', JSON.stringify(invoices));
+        );
         
         // Check if supplier still has invoices
         const supplierInvoices = invoices.filter(inv => inv.supplier === currentSupplier);
@@ -3490,7 +3490,7 @@ document.getElementById('refresh-data-btn').addEventListener('click', async () =
             ">
               إعادة تحميل الصفحة
             </button>
-            <button onclick="localStorage.clear(); location.reload();" style="
+            <button onclick=" location.reload();" style="
               background: linear-gradient(135deg, #64748b 0%, #475569 100%);
               color: white;
               border: none;
